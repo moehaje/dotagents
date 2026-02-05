@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -70,16 +71,9 @@ export async function resolveHomeRepository(explicitHome?: string): Promise<stri
 		return stored.homeRepo;
 	}
 
-	const candidates = [
-		path.join(homedir(), "dotagents"),
-		path.join(homedir(), "sync", "dev", "hacking", "dot-agents"),
-		path.join(homedir(), "sync", "dev", "dot-agents"),
-	];
-
-	for (const candidate of candidates) {
-		if (await pathExists(candidate)) {
-			return candidate;
-		}
+	const detected = await detectHomeRepoFromFilesystem();
+	if (detected) {
+		return detected;
 	}
 
 	return path.join(homedir(), "dotagents");
@@ -160,4 +154,66 @@ async function pathExists(targetPath: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+const HOME_REPO_NAMES = new Set(["dotagents", "dot-agents"]);
+const SEARCH_SKIP_DIRS = new Set([
+	".git",
+	"node_modules",
+	".cache",
+	"Library",
+	".Trash",
+	"Applications",
+	"Movies",
+	"Music",
+	"Pictures",
+	"Downloads",
+]);
+
+export async function detectHomeRepoFromFilesystem(): Promise<string | null> {
+	const roots = [homedir()];
+	const matches = await findDirectoriesByName(roots, HOME_REPO_NAMES, 4);
+	return matches[0] ?? null;
+}
+
+export async function findDirectoriesByName(
+	roots: string[],
+	names: ReadonlySet<string>,
+	maxDepth: number,
+): Promise<string[]> {
+	const queue: Array<{ dir: string; depth: number }> = roots.map((dir) => ({
+		dir: path.resolve(dir),
+		depth: 0,
+	}));
+	const seen = new Set<string>();
+	const matches: string[] = [];
+
+	while (queue.length > 0) {
+		const current = queue.shift();
+		if (!current) continue;
+		if (seen.has(current.dir)) continue;
+		seen.add(current.dir);
+
+		let entries: Dirent[];
+		try {
+			entries = await fs.readdir(current.dir, { withFileTypes: true, encoding: "utf8" });
+		} catch {
+			continue;
+		}
+
+		for (const entry of entries) {
+			if (!entry.isDirectory()) continue;
+			const entryPath = path.join(current.dir, entry.name);
+			if (names.has(entry.name)) {
+				matches.push(entryPath);
+			}
+
+			if (current.depth >= maxDepth) continue;
+			if (SEARCH_SKIP_DIRS.has(entry.name)) continue;
+			if (entry.name.startsWith(".")) continue;
+			queue.push({ dir: entryPath, depth: current.depth + 1 });
+		}
+	}
+
+	return matches.sort();
 }

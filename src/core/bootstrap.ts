@@ -5,6 +5,7 @@ import * as p from "@clack/prompts";
 import pc from "picocolors";
 import {
 	buildDefaultConfig,
+	detectHomeRepoFromFilesystem,
 	expandTilde,
 	getGlobalConfigPath,
 	loadGlobalConfig,
@@ -12,6 +13,7 @@ import {
 	saveGlobalConfig,
 	type DotagentsGlobalConfig,
 } from "./config.js";
+import { styleBadge } from "../ui/brand.js";
 
 export async function ensureConfiguredForRun(): Promise<DotagentsGlobalConfig> {
 	const existing = await loadGlobalConfig();
@@ -32,7 +34,7 @@ export async function ensureConfiguredForRun(): Promise<DotagentsGlobalConfig> {
 }
 
 export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
-	p.intro(pc.cyan("Welcome to dotagents"));
+	p.intro(styleBadge("dotagents"));
 	p.log.info(`No global config found at ${getGlobalConfigPath()}.`);
 
 	const hasExisting = await p.confirm({
@@ -45,21 +47,50 @@ export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
 
 	let homeRepo: string;
 	if (hasExisting) {
-		const defaultHome = await resolveHomeRepository();
-		const value = await p.text({
-			message: "Path to your existing home repo",
-			initialValue: defaultHome,
-			validate(input) {
-				if (!input.trim()) {
-					return "Path is required.";
+		const detected = await detectHomeRepoFromFilesystem();
+		if (detected) {
+			const confirmDetected = await p.confirm({
+				message: `Detected "${detected}". Is this your home repo path?`,
+				initialValue: true,
+			});
+			if (p.isCancel(confirmDetected)) {
+				throw new Error("Canceled first-run setup.");
+			}
+			if (confirmDetected) {
+				homeRepo = detected;
+			} else {
+				const value = await p.text({
+					message: "Path to your existing home repo",
+					initialValue: detected,
+					validate(input) {
+						if (!input.trim()) {
+							return "Path is required.";
+						}
+						return undefined;
+					},
+				});
+				if (p.isCancel(value)) {
+					throw new Error("Canceled first-run setup.");
 				}
-				return undefined;
-			},
-		});
-		if (p.isCancel(value)) {
-			throw new Error("Canceled first-run setup.");
+				homeRepo = expandTilde(value);
+			}
+		} else {
+			const defaultHome = await resolveHomeRepository();
+			const value = await p.text({
+				message: "Path to your existing home repo",
+				initialValue: defaultHome,
+				validate(input) {
+					if (!input.trim()) {
+						return "Path is required.";
+					}
+					return undefined;
+				},
+			});
+			if (p.isCancel(value)) {
+				throw new Error("Canceled first-run setup.");
+			}
+			homeRepo = expandTilde(value);
 		}
-		homeRepo = expandTilde(value);
 		await initializeHomeRepository(homeRepo, false);
 	} else {
 		const value = await p.text({
