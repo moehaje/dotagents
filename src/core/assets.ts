@@ -1,5 +1,5 @@
-import fs from "node:fs/promises";
 import type { Dirent } from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { resolveHomeRepository, type ScanSource } from "./config.js";
 import type { DiscoveredAsset, ScanReport } from "./types.js";
@@ -181,9 +181,7 @@ async function discoverSkillsFromSource(source: ScanSource): Promise<DiscoveredA
 }
 
 async function resolveSourcePromptRoots(sourceRoot: string, explicit: boolean): Promise<string[]> {
-	const candidates = explicit
-		? ["", ...PROMPT_SOURCE_DIRS]
-		: [...PROMPT_SOURCE_DIRS];
+	const candidates = explicit ? ["", ...PROMPT_SOURCE_DIRS] : [...PROMPT_SOURCE_DIRS];
 	const roots = await resolveExistingDirectories(sourceRoot, candidates);
 	return uniqueStrings(roots);
 }
@@ -194,7 +192,10 @@ async function resolveSourceSkillRoots(sourceRoot: string, explicit: boolean): P
 	return uniqueStrings(roots);
 }
 
-async function resolveExistingDirectories(base: string, subdirs: readonly string[]): Promise<string[]> {
+async function resolveExistingDirectories(
+	base: string,
+	subdirs: readonly string[],
+): Promise<string[]> {
 	const resolved: string[] = [];
 	for (const subdir of subdirs) {
 		const candidate = subdir ? path.join(base, subdir) : base;

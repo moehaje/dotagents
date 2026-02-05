@@ -37,7 +37,9 @@ export async function runScanCommand(args: string[]): Promise<number> {
 
 	process.stdout.write(`${pc.bold("dotagents scan")}\n`);
 	process.stdout.write(`${styleLabel("home")}: ${pc.cyan(report.home)}\n`);
-	process.stdout.write(`${styleLabel("sources")}: ${styleHint(report.scannedSources.join(", "))}\n\n`);
+	process.stdout.write(
+		`${styleLabel("sources")}: ${styleHint(report.scannedSources.join(", "))}\n\n`,
+	);
 
 	if (report.unsyncedPrompts.length === 0 && report.unsyncedSkills.length === 0) {
 		process.stdout.write(`${pc.green("No unsynced assets found.")}\n`);
@@ -47,7 +49,9 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	if (report.unsyncedPrompts.length > 0) {
 		process.stdout.write(`${pc.bold("Unsynced prompts")} (${report.unsyncedPrompts.length})\n`);
 		for (const asset of report.unsyncedPrompts) {
-			process.stdout.write(`  - ${styleCommand(asset.id)} ${pc.dim(`[${asset.source}]`)} ${pc.dim(`(${asset.path})`)}\n`);
+			process.stdout.write(
+				`  - ${styleCommand(asset.id)} ${pc.dim(`[${asset.source}]`)} ${pc.dim(`(${asset.path})`)}\n`,
+			);
 		}
 		process.stdout.write("\n");
 	}
@@ -55,14 +59,20 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	if (report.unsyncedSkills.length > 0) {
 		process.stdout.write(`${pc.bold("Unsynced skills")} (${report.unsyncedSkills.length})\n`);
 		for (const asset of report.unsyncedSkills) {
-			process.stdout.write(`  - ${styleCommand(asset.id)} ${pc.dim(`[${asset.source}]`)} ${pc.dim(`(${asset.path})`)}\n`);
+			process.stdout.write(
+				`  - ${styleCommand(asset.id)} ${pc.dim(`[${asset.source}]`)} ${pc.dim(`(${asset.path})`)}\n`,
+			);
 		}
 		process.stdout.write("\n");
 	}
 
 	const shouldPromptSync = options.sync || (Boolean(process.stdout.isTTY) && !options.json);
 	if (shouldPromptSync) {
-		return await promptAndSyncUnsynced(home, [...report.unsyncedPrompts, ...report.unsyncedSkills], options.force);
+		return await promptAndSyncUnsynced(
+			home,
+			[...report.unsyncedPrompts, ...report.unsyncedSkills],
+			options.force,
+		);
 	}
 
 	return 1;
@@ -162,5 +172,7 @@ function printScanHelp(): void {
 	process.stdout.write(
 		`Usage: ${styleCommand("dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force]")}\n`,
 	);
-	process.stdout.write(`  ${styleHint("--sync opens interactive multi-select when unsynced assets are found.")}\n`);
+	process.stdout.write(
+		`  ${styleHint("--sync opens interactive multi-select when unsynced assets are found.")}\n`,
+	);
 }

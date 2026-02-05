@@ -24,11 +24,7 @@ describe("findDirectoriesByName", () => {
 		await fs.mkdir(a, { recursive: true });
 		await fs.mkdir(b, { recursive: true });
 
-		const matches = await findDirectoriesByName(
-			[root],
-			new Set(["dotagents", "dot-agents"]),
-			4,
-		);
+		const matches = await findDirectoriesByName([root], new Set(["dotagents", "dot-agents"]), 4);
 		expect(matches).toContain(a);
 		expect(matches).toContain(b);
 	});

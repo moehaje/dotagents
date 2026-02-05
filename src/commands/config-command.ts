@@ -1,15 +1,15 @@
 import * as p from "@clack/prompts";
 import pc from "picocolors";
+import { initializeHomeRepository, runFirstRunSetup } from "../core/bootstrap.js";
 import {
 	buildDefaultConfig,
+	type DotagentsGlobalConfig,
 	expandTilde,
 	getGlobalConfigPath,
 	loadGlobalConfig,
 	resolveHomeRepository,
 	saveGlobalConfig,
-	type DotagentsGlobalConfig,
 } from "../core/config.js";
-import { initializeHomeRepository, runFirstRunSetup } from "../core/bootstrap.js";
 import { styleCommand, styleHint, styleLabel, styleSuccess } from "../ui/brand.js";
 
 type ConfigOptions = {
@@ -36,7 +36,14 @@ export async function runConfigCommand(args: string[]): Promise<number> {
 		config = await runFirstRunSetup();
 	}
 	config = config ?? buildDefaultConfig(await resolveHomeRepository());
-	if (options.home || options.codex || options.claude || options.agents || options.clearSources || options.addSource) {
+	if (
+		options.home ||
+		options.codex ||
+		options.claude ||
+		options.agents ||
+		options.clearSources ||
+		options.addSource
+	) {
 		config = {
 			...config,
 			homeRepo: options.home ? expandTilde(options.home) : config.homeRepo,
@@ -63,7 +70,9 @@ export async function runConfigCommand(args: string[]): Promise<number> {
 	}
 
 	if (args.length > 0 && !options.help) {
-		process.stdout.write(`${styleSuccess("Updated config at")} ${styleCommand(getGlobalConfigPath())}\n`);
+		process.stdout.write(
+			`${styleSuccess("Updated config at")} ${styleCommand(getGlobalConfigPath())}\n`,
+		);
 		return 0;
 	}
 
@@ -118,7 +127,11 @@ function parseConfigArgs(args: string[]): ConfigOptions {
 }
 
 async function runInteractiveConfig(initial: DotagentsGlobalConfig): Promise<void> {
-	let config = { ...initial, agents: { ...initial.agents }, customSources: [...initial.customSources] };
+	const config = {
+		...initial,
+		agents: { ...initial.agents },
+		customSources: [...initial.customSources],
+	};
 	p.intro(pc.cyan("dotagents config"));
 
 	let done = false;
@@ -214,12 +227,24 @@ async function promptPath(message: string, initialValue: string): Promise<string
 function printConfigHelp(): void {
 	process.stdout.write(`${styleLabel("Usage")}: ${styleCommand("dotagents config [options]")}\n`);
 	process.stdout.write(`${styleLabel("Options")}\n`);
-	process.stdout.write(`  ${styleCommand("--home <path>")}      ${styleHint("Set home repo path")}\n`);
+	process.stdout.write(
+		`  ${styleCommand("--home <path>")}      ${styleHint("Set home repo path")}\n`,
+	);
 	process.stdout.write(`  ${styleCommand("--codex <path>")}     ${styleHint("Set codex path")}\n`);
 	process.stdout.write(`  ${styleCommand("--claude <path>")}    ${styleHint("Set claude path")}\n`);
-	process.stdout.write(`  ${styleCommand("--agents <path>")}    ${styleHint("Set generic .agents path")}\n`);
-	process.stdout.write(`  ${styleCommand("--source <path>")}    ${styleHint("Add custom scan source (repeatable)")}\n`);
-	process.stdout.write(`  ${styleCommand("--clear-sources")}    ${styleHint("Clear all custom sources")}\n`);
-	process.stdout.write(`  ${styleCommand("--list")}             ${styleHint("Print config as JSON")}\n`);
-	process.stdout.write(`  ${styleCommand("--json")}             ${styleHint("Print config as JSON")}\n`);
+	process.stdout.write(
+		`  ${styleCommand("--agents <path>")}    ${styleHint("Set generic .agents path")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--source <path>")}    ${styleHint("Add custom scan source (repeatable)")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--clear-sources")}    ${styleHint("Clear all custom sources")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--list")}             ${styleHint("Print config as JSON")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--json")}             ${styleHint("Print config as JSON")}\n`,
+	);
 }

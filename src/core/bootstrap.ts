@@ -1,19 +1,19 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
+import { styleBadge, styleCommand, styleHint } from "../ui/brand.js";
 import {
 	buildDefaultConfig,
+	type DotagentsGlobalConfig,
 	detectHomeRepoFromFilesystem,
 	expandTilde,
 	getGlobalConfigPath,
 	loadGlobalConfig,
 	resolveHomeRepository,
 	saveGlobalConfig,
-	type DotagentsGlobalConfig,
 } from "./config.js";
-import { styleBadge, styleCommand, styleHint } from "../ui/brand.js";
 
 export async function ensureConfiguredForRun(): Promise<DotagentsGlobalConfig> {
 	const existing = await loadGlobalConfig();
@@ -176,7 +176,9 @@ export async function initializeHomeRepository(
 	if (options.initializeGit && !(await pathExists(path.join(homeRepo, ".git")))) {
 		const result = spawnSync("git", ["init"], { cwd: homeRepo, stdio: "ignore" });
 		if (result.status !== 0) {
-			p.log.warn(`Could not initialize git automatically. ${styleHint("Run")} ${styleCommand("git init")} ${styleHint("in your home repo.")}`);
+			p.log.warn(
+				`Could not initialize git automatically. ${styleHint("Run")} ${styleCommand("git init")} ${styleHint("in your home repo.")}`,
+			);
 		}
 	}
 }

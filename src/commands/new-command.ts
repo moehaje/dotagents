@@ -22,7 +22,9 @@ export async function runNewCommand(args: string[]): Promise<number> {
 
 	const kind = parsed.kind ?? "prompt";
 	if (kind !== "prompt" && kind !== "skill") {
-		process.stderr.write(`${styleError(`Invalid asset kind: ${kind}.`)} ${styleHint("Use prompt or skill.")}\n`);
+		process.stderr.write(
+			`${styleError(`Invalid asset kind: ${kind}.`)} ${styleHint("Use prompt or skill.")}\n`,
+		);
 		return 2;
 	}
 
@@ -33,7 +35,11 @@ export async function runNewCommand(args: string[]): Promise<number> {
 	return runNewSkill(home, parsed.name, parsed.options);
 }
 
-async function runNewPrompt(home: string, name: string | undefined, options: NewCommandOptions): Promise<number> {
+async function runNewPrompt(
+	home: string,
+	name: string | undefined,
+	options: NewCommandOptions,
+): Promise<number> {
 	p.intro(pc.cyan("Create prompt"));
 
 	const promptName = name ?? (await askRequired("Prompt slug/name"));
@@ -108,7 +114,11 @@ async function runNewPrompt(home: string, name: string | undefined, options: New
 	return 0;
 }
 
-async function runNewSkill(home: string, name: string | undefined, options: NewCommandOptions): Promise<number> {
+async function runNewSkill(
+	home: string,
+	name: string | undefined,
+	options: NewCommandOptions,
+): Promise<number> {
 	p.intro(pc.cyan("Create skill"));
 	const skillName = name ?? (await askRequired("Skill name"));
 	if (!skillName) {
@@ -324,12 +334,14 @@ function printNewHelp(): void {
 	process.stdout.write(
 		`Usage: ${styleCommand("dotagents new <prompt|skill> [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
 	);
-	process.stdout.write(`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`);
+	process.stdout.write(
+		`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`,
+	);
 }
 
 function toTitleCase(value: string): string {
 	return value
-		.split(/[\/-]/g)
+		.split(/[/-]/g)
 		.filter(Boolean)
 		.map((chunk) => chunk.slice(0, 1).toUpperCase() + chunk.slice(1))
 		.join(" ");

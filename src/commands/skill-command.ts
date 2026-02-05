@@ -49,7 +49,9 @@ async function runRegistrySync(args: string[]): Promise<number> {
 	}
 
 	const statuses = await checkRegistryStatus(home);
-	const outdated = statuses.filter((item) => item.status === "outdated" || item.status === "missing-local");
+	const outdated = statuses.filter(
+		(item) => item.status === "outdated" || item.status === "missing-local",
+	);
 	const errored = statuses.filter((item) => item.status === "error");
 
 	process.stdout.write(`${styleLabel("Skill registry status")}\n`);
@@ -106,7 +108,9 @@ async function runRegistrySync(args: string[]): Promise<number> {
 		if (result.updated) {
 			process.stdout.write(`${pc.green("Updated")} ${result.entry.skillPath}\n`);
 		} else {
-			process.stdout.write(`${pc.red("Failed")} ${result.entry.skillPath}: ${result.message ?? "unknown"}\n`);
+			process.stdout.write(
+				`${pc.red("Failed")} ${result.entry.skillPath}: ${result.message ?? "unknown"}\n`,
+			);
 		}
 	}
 
@@ -149,8 +153,12 @@ function parseSyncOptions(args: string[]): {
 function printSkillHelp(): void {
 	process.stdout.write(`${styleLabel("Usage")}\n`);
 	process.stdout.write(`  ${styleCommand("dotagents skill <skills-cli-args...>")}\n`);
-	process.stdout.write(`  ${styleCommand("dotagents skill sync [--check] [--yes] [--home <path>]")}\n`);
+	process.stdout.write(
+		`  ${styleCommand("dotagents skill sync [--check] [--yes] [--home <path>]")}\n`,
+	);
 	process.stdout.write(`\n${styleLabel("Examples")}\n`);
-	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents skill add vercel-labs/skills@find-skills")}\n`);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents skill add vercel-labs/skills@find-skills")}\n`,
+	);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents skill sync --check")}\n`);
 }

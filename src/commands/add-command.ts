@@ -30,7 +30,9 @@ export async function runAddCommand(args: string[]): Promise<number> {
 		return 130;
 	}
 	if (kind !== "prompt" && kind !== "skill") {
-		process.stderr.write(`${styleError(`Invalid asset kind: ${kind}.`)} ${styleHint("Use prompt or skill.")}\n`);
+		process.stderr.write(
+			`${styleError(`Invalid asset kind: ${kind}.`)} ${styleHint("Use prompt or skill.")}\n`,
+		);
 		return 2;
 	}
 
@@ -65,7 +67,12 @@ export async function runAddCommand(args: string[]): Promise<number> {
 	return 0;
 }
 
-async function addSingleAsset(kind: "prompt" | "skill", home: string, name: string, options: AddOptions): Promise<void> {
+async function addSingleAsset(
+	kind: "prompt" | "skill",
+	home: string,
+	name: string,
+	options: AddOptions,
+): Promise<void> {
 	if (kind === "prompt") {
 		const targetFile = options.to
 			? path.resolve(options.to)
@@ -114,9 +121,10 @@ async function selectAssetsFromHome(
 	kind: "prompt" | "skill",
 	explicitTargetPath: string | undefined,
 ): Promise<string[] | null> {
-	const ids = kind === "prompt"
-		? Array.from(await listHomePromptIds(home)).sort((a, b) => a.localeCompare(b))
-		: Array.from(await listHomeSkillIds(home)).sort((a, b) => a.localeCompare(b));
+	const ids =
+		kind === "prompt"
+			? Array.from(await listHomePromptIds(home)).sort((a, b) => a.localeCompare(b))
+			: Array.from(await listHomeSkillIds(home)).sort((a, b) => a.localeCompare(b));
 
 	if (ids.length === 0) {
 		process.stdout.write(`${styleHint(`No ${kind}s found in ${home}.`)}\n`);
@@ -202,7 +210,13 @@ function parseAddArgs(args: string[]): {
 }
 
 function printAddHelp(): void {
-	process.stdout.write(`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--home <path>] [--force]")}\n`);
-	process.stdout.write(`  ${styleHint("Copy a prompt or skill from your home repo into the current project.")}\n`);
-	process.stdout.write(`  ${styleHint("If <name> is omitted in interactive mode, you'll choose from available home assets.")}\n`);
+	process.stdout.write(
+		`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--home <path>] [--force]")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("Copy a prompt or skill from your home repo into the current project.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("If <name> is omitted in interactive mode, you'll choose from available home assets.")}\n`,
+	);
 }
