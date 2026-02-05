@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { ensureHomeRepoStructure, slugifyName } from "../core/assets.js";
@@ -7,6 +8,8 @@ import { ensureHomeRepoStructure, slugifyName } from "../core/assets.js";
 type NewCommandOptions = {
 	home?: string;
 	force?: boolean;
+	contentFile?: string;
+	contentStdin?: boolean;
 };
 
 export async function runNewCommand(args: string[]): Promise<number> {
@@ -61,7 +64,7 @@ async function runNewPrompt(home: string, name: string | undefined, options: New
 		return 130;
 	}
 
-	const content = await askRequired("Prompt content");
+	const content = await resolvePromptContent(options);
 	if (!content) {
 		p.cancel("Canceled.");
 		return 130;
@@ -161,7 +164,7 @@ async function askRequired(message: string): Promise<string | null> {
 	const value = await p.text({
 		message,
 		validate(input) {
-			if (!input.trim()) {
+			if (!toTrimmedString(input)) {
 				return "This field is required.";
 			}
 			return undefined;
@@ -170,7 +173,7 @@ async function askRequired(message: string): Promise<string | null> {
 	if (p.isCancel(value)) {
 		return null;
 	}
-	return value.trim();
+	return toTrimmedString(value);
 }
 
 async function askWithDefault(message: string, defaultValue: string): Promise<string | null> {
@@ -181,7 +184,86 @@ async function askWithDefault(message: string, defaultValue: string): Promise<st
 	if (p.isCancel(value)) {
 		return null;
 	}
-	return value.trim();
+	return toTrimmedString(value);
+}
+
+async function resolvePromptContent(options: NewCommandOptions): Promise<string | null> {
+	if (options.contentFile) {
+		const raw = await fs.readFile(path.resolve(options.contentFile), "utf8");
+		const content = raw.trimEnd();
+		return content.length > 0 ? content : null;
+	}
+
+	if (options.contentStdin || !process.stdout.isTTY) {
+		const raw = await readAllStdin();
+		const content = raw.trimEnd();
+		return content.length > 0 ? content : null;
+	}
+
+	const mode = await p.select({
+		message: "Prompt content input mode",
+		options: [
+			{
+				value: "multiline",
+				label: "Paste multiline markdown (end with EOF)",
+			},
+			{
+				value: "single",
+				label: "Single line input",
+			},
+		],
+	});
+	if (p.isCancel(mode)) {
+		return null;
+	}
+
+	if (mode === "single") {
+		return await askRequired("Prompt content");
+	}
+
+	return await readMultilineInput();
+}
+
+async function readMultilineInput(): Promise<string | null> {
+	p.log.info("Paste markdown content below. End input with a line containing only: EOF");
+
+	const lines: string[] = [];
+	const rl = createInterface({
+		input: process.stdin,
+		output: process.stdout,
+		terminal: true,
+	});
+
+	return await new Promise<string | null>((resolve) => {
+		const finish = () => {
+			rl.close();
+			const content = lines.join("\n").trimEnd();
+			resolve(content.length > 0 ? content : null);
+		};
+
+		rl.on("line", (line) => {
+			if (line === "EOF") {
+				finish();
+				return;
+			}
+			lines.push(line);
+		});
+		rl.on("close", () => {
+			const content = lines.join("\n").trimEnd();
+			resolve(content.length > 0 ? content : null);
+		});
+	});
+}
+
+async function readAllStdin(): Promise<string> {
+	if (process.stdin.isTTY) {
+		return "";
+	}
+	let content = "";
+	for await (const chunk of process.stdin) {
+		content += chunk;
+	}
+	return content;
 }
 
 function parseNewArgs(args: string[]): {
@@ -214,6 +296,19 @@ function parseNewArgs(args: string[]): {
 			index += 1;
 			continue;
 		}
+		if (arg === "--content-file") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --content-file");
+			}
+			options.contentFile = value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--content-stdin") {
+			options.contentStdin = true;
+			continue;
+		}
 		positionals.push(arg);
 	}
 
@@ -225,7 +320,9 @@ function parseNewArgs(args: string[]): {
 }
 
 function printNewHelp(): void {
-	process.stdout.write("Usage: dotagents new <prompt|skill> [name] [--home <path>] [--force]\n");
+	process.stdout.write(
+		"Usage: dotagents new <prompt|skill> [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]\n",
+	);
 }
 
 function toTitleCase(value: string): string {
@@ -243,4 +340,8 @@ async function existsPath(targetPath: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+function toTrimmedString(value: unknown): string {
+	return typeof value === "string" ? value.trim() : "";
 }

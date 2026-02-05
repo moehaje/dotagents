@@ -71,7 +71,9 @@ export async function resolveHomeRepository(explicitHome?: string): Promise<stri
 		return stored.homeRepo;
 	}
 
-	const detected = await detectHomeRepoFromFilesystem();
+	const detected = await detectHomeRepoFromFilesystem({
+		excludePaths: [process.cwd()],
+	});
 	if (detected) {
 		return detected;
 	}
@@ -170,10 +172,15 @@ const SEARCH_SKIP_DIRS = new Set([
 	"Downloads",
 ]);
 
-export async function detectHomeRepoFromFilesystem(): Promise<string | null> {
+export async function detectHomeRepoFromFilesystem(options?: {
+	excludePaths?: string[];
+}): Promise<string | null> {
 	const roots = [homedir()];
 	const matches = await findDirectoriesByName(roots, HOME_REPO_NAMES, 4);
-	return matches[0] ?? null;
+	const excluded = new Set((options?.excludePaths ?? []).map((value) => path.resolve(value)));
+	const filtered = matches.filter((candidate) => !excluded.has(path.resolve(candidate)));
+	const ranked = await rankHomeRepoCandidates(filtered);
+	return ranked[0] ?? null;
 }
 
 export async function findDirectoriesByName(
@@ -216,4 +223,25 @@ export async function findDirectoriesByName(
 	}
 
 	return matches.sort();
+}
+
+async function rankHomeRepoCandidates(candidates: string[]): Promise<string[]> {
+	const scored = await Promise.all(
+		candidates.map(async (candidate) => ({
+			candidate,
+			score: await scoreHomeRepoCandidate(candidate),
+		})),
+	);
+	return scored
+		.sort((a, b) => b.score - a.score || a.candidate.localeCompare(b.candidate))
+		.map((item) => item.candidate);
+}
+
+async function scoreHomeRepoCandidate(candidate: string): Promise<number> {
+	let score = 0;
+	if (await pathExists(path.join(candidate, "prompts"))) score += 3;
+	if (await pathExists(path.join(candidate, "skills"))) score += 3;
+	if (await pathExists(path.join(candidate, "configs", "skills-registry.tsv"))) score += 3;
+	if (await pathExists(path.join(candidate, ".git"))) score += 1;
+	return score;
 }

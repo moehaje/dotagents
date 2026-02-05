@@ -49,7 +49,10 @@ export async function runConfigCommand(args: string[]): Promise<number> {
 		if (options.addSource?.length) {
 			config.customSources = [...config.customSources, ...options.addSource.map(expandTilde)];
 		}
-		await initializeHomeRepository(config.homeRepo, false);
+		await initializeHomeRepository(config.homeRepo, {
+			initializeGit: false,
+			allowProjectRoot: true,
+		});
 		await saveGlobalConfig(config);
 	}
 
@@ -182,7 +185,10 @@ async function runInteractiveConfig(initial: DotagentsGlobalConfig): Promise<voi
 		}
 	}
 
-	await initializeHomeRepository(config.homeRepo, false);
+	await initializeHomeRepository(config.homeRepo, {
+		initializeGit: false,
+		allowProjectRoot: true,
+	});
 	await saveGlobalConfig(config);
 	p.outro(pc.green(`Saved config at ${getGlobalConfigPath()}`));
 }

@@ -25,7 +25,7 @@ export async function ensureConfiguredForRun(): Promise<DotagentsGlobalConfig> {
 	if (!isInteractive) {
 		const homeRepo = await resolveHomeRepository();
 		const config = buildDefaultConfig(homeRepo);
-		await initializeHomeRepository(homeRepo, false);
+		await initializeHomeRepository(homeRepo, { initializeGit: false });
 		await saveGlobalConfig(config);
 		return config;
 	}
@@ -47,7 +47,9 @@ export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
 
 	let homeRepo: string;
 	if (hasExisting) {
-		const detected = await detectHomeRepoFromFilesystem();
+		const detected = await detectHomeRepoFromFilesystem({
+			excludePaths: [process.cwd()],
+		});
 		if (detected) {
 			const confirmDetected = await p.confirm({
 				message: `Detected "${detected}". Is this your home repo path?`,
@@ -91,7 +93,9 @@ export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
 			}
 			homeRepo = expandTilde(value);
 		}
-		await initializeHomeRepository(homeRepo, false);
+		if (!(await pathExists(homeRepo))) {
+			throw new Error(`Home repository path does not exist: ${homeRepo}`);
+		}
 	} else {
 		const value = await p.text({
 			message: "Path for the new home repo",
@@ -107,7 +111,7 @@ export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
 			throw new Error("Canceled first-run setup.");
 		}
 		homeRepo = expandTilde(value);
-		await initializeHomeRepository(homeRepo, true);
+		await initializeHomeRepository(homeRepo, { initializeGit: true });
 	}
 
 	const defaults = buildDefaultConfig(homeRepo);
@@ -130,7 +134,16 @@ export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
 	return config;
 }
 
-export async function initializeHomeRepository(homeRepo: string, initializeGit: boolean): Promise<void> {
+export async function initializeHomeRepository(
+	homeRepo: string,
+	options: { initializeGit: boolean; allowProjectRoot?: boolean },
+): Promise<void> {
+	if (!options.allowProjectRoot && (await isCurrentProjectRoot(homeRepo))) {
+		throw new Error(
+			`Refusing to initialize home repository in the current project root: ${homeRepo}. Set a different home path with \`dotagents config --home <path>\`.`,
+		);
+	}
+
 	await fs.mkdir(homeRepo, { recursive: true });
 	await fs.mkdir(path.join(homeRepo, "prompts"), { recursive: true });
 	await fs.mkdir(path.join(homeRepo, "skills"), { recursive: true });
@@ -160,7 +173,7 @@ export async function initializeHomeRepository(homeRepo: string, initializeGit: 
 		await fs.writeFile(gitignorePath, ".DS_Store\n", "utf8");
 	}
 
-	if (initializeGit && !(await pathExists(path.join(homeRepo, ".git")))) {
+	if (options.initializeGit && !(await pathExists(path.join(homeRepo, ".git")))) {
 		const result = spawnSync("git", ["init"], { cwd: homeRepo, stdio: "ignore" });
 		if (result.status !== 0) {
 			p.log.warn("Could not initialize git automatically. Run `git init` in your home repo.");
@@ -192,4 +205,13 @@ async function pathExists(targetPath: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+async function isCurrentProjectRoot(targetPath: string): Promise<boolean> {
+	const target = path.resolve(targetPath);
+	const cwd = path.resolve(process.cwd());
+	if (target !== cwd) {
+		return false;
+	}
+	return await pathExists(path.join(target, "package.json"));
 }
