@@ -1,12 +1,18 @@
 {
   "name": "dotagents",
   "version": "0.1.0",
-  "description": "CLI for managing agent prompts and skills from a canonical dotagents repo.",
-  "type": "module",
+  "description": "CLI for managing agents assets from a canonical dotagents repo.",
   "license": "MIT",
-  "bin": {
-    "dotagents": "dist/index.js"
-  },
+  "author": "Moe Haje <hello@moee.dev> (https://moee.dev)",
+  "repository": {
+		"type": "git",
+		"url": "git+https://github.com/moehaje/dotagents.git"
+	},
+  "bugs": {
+		"url": "https://github.com/moehaje/dotagents/issues"
+	},
+  "homepage": "https://github.com/moehaje/dotagents#readme",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -18,6 +24,21 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "keywords": [
+    "cli",
+    "agents",
+    "prompts",
+    "skills",
+    "assets",
+    "sync"
+  ],
+  "bin": {
+    "dotagents": "dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "files": [
     "dist",
