@@ -27,6 +27,7 @@ export function printHelp(version: string): void {
 	process.stdout.write("  new <prompt|skill> [name]   Create a new asset in dotagents home\n");
 	process.stdout.write("  add [prompt|skill] <name>   Copy an asset from home to current project\n");
 	process.stdout.write("  scan                        Scan agent directories for unsynced assets\n");
+	process.stdout.write("  config                      Configure global paths and home repo\n");
 	process.stdout.write("  skill <args...>             Passthrough to `npx skills <args...>`\n");
 	process.stdout.write("  --help, -h                  Show help\n");
 	process.stdout.write("  --version, -v               Show version\n\n");
@@ -34,6 +35,8 @@ export function printHelp(version: string): void {
 	process.stdout.write("  dotagents new prompt\n");
 	process.stdout.write("  dotagents add prompt release\n");
 	process.stdout.write("  dotagents add skill terminal-ui --force\n");
-	process.stdout.write("  dotagents scan --json\n");
+	process.stdout.write("  dotagents scan --sync\n");
+	process.stdout.write("  dotagents config\n");
 	process.stdout.write("  dotagents skill add vercel-labs/skills@find-skills\n");
+	process.stdout.write("  dotagents skill sync --check\n");
 }

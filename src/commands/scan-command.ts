@@ -1,11 +1,19 @@
+import * as p from "@clack/prompts";
 import pc from "picocolors";
-import { ensureHomeRepoStructure, scanUnsyncedAssets } from "../core/assets.js";
+import {
+	ensureHomeRepoStructure,
+	importDiscoveredAssetToHome,
+	scanUnsyncedAssets,
+} from "../core/assets.js";
 import { defaultScanSources } from "../core/config.js";
+import type { DiscoveredAsset } from "../core/types.js";
 
 type ScanOptions = {
 	home?: string;
 	json?: boolean;
 	sources: string[];
+	sync?: boolean;
+	force?: boolean;
 };
 
 export async function runScanCommand(args: string[]): Promise<number> {
@@ -18,7 +26,7 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	const home = await ensureHomeRepoStructure(options.home);
 	const report = await scanUnsyncedAssets({
 		home,
-		sources: defaultScanSources(options.sources),
+		sources: await defaultScanSources(options.sources),
 	});
 
 	if (options.json) {
@@ -38,7 +46,7 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	if (report.unsyncedPrompts.length > 0) {
 		process.stdout.write(`${pc.bold("Unsynced prompts")} (${report.unsyncedPrompts.length})\n`);
 		for (const asset of report.unsyncedPrompts) {
-			process.stdout.write(`  - ${asset.id} ${pc.dim(`(${asset.path})`)}\n`);
+			process.stdout.write(`  - ${asset.id} ${pc.dim(`[${asset.source}]`)} ${pc.dim(`(${asset.path})`)}\n`);
 		}
 		process.stdout.write("\n");
 	}
@@ -46,12 +54,62 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	if (report.unsyncedSkills.length > 0) {
 		process.stdout.write(`${pc.bold("Unsynced skills")} (${report.unsyncedSkills.length})\n`);
 		for (const asset of report.unsyncedSkills) {
-			process.stdout.write(`  - ${asset.id} ${pc.dim(`(${asset.path})`)}\n`);
+			process.stdout.write(`  - ${asset.id} ${pc.dim(`[${asset.source}]`)} ${pc.dim(`(${asset.path})`)}\n`);
 		}
 		process.stdout.write("\n");
 	}
 
+	const shouldPromptSync = options.sync || (Boolean(process.stdout.isTTY) && !options.json);
+	if (shouldPromptSync) {
+		return await promptAndSyncUnsynced(home, [...report.unsyncedPrompts, ...report.unsyncedSkills], options.force);
+	}
+
 	return 1;
+}
+
+async function promptAndSyncUnsynced(
+	home: string,
+	assets: DiscoveredAsset[],
+	force = false,
+): Promise<number> {
+	if (assets.length === 0) {
+		return 0;
+	}
+
+	const selected = await p.multiselect({
+		message: "Select unsynced assets to import into home repo",
+		options: assets.map((asset) => ({
+			value: `${asset.kind}:${asset.id}:${asset.path}`,
+			label: `[${asset.kind}] ${asset.id}  (${asset.source})`,
+			hint: asset.path,
+		})),
+	});
+	if (p.isCancel(selected)) {
+		p.cancel("Canceled sync.");
+		return 130;
+	}
+	if (selected.length === 0) {
+		process.stdout.write("No assets selected for sync.\n");
+		return 1;
+	}
+
+	const chosen = new Set(selected);
+	const targets = assets.filter((asset) => chosen.has(`${asset.kind}:${asset.id}:${asset.path}`));
+	let failures = 0;
+	for (const asset of targets) {
+		try {
+			const targetPath = await importDiscoveredAssetToHome({ home, asset, force });
+			process.stdout.write(`${pc.green("Synced")} [${asset.kind}] ${asset.id} -> ${targetPath}\n`);
+		} catch (error) {
+			failures += 1;
+			process.stdout.write(
+				`${pc.red("Failed")} [${asset.kind}] ${asset.id}: ${
+					error instanceof Error ? error.message : String(error)
+				}\n`,
+			);
+		}
+	}
+	return failures > 0 ? 1 : 0;
 }
 
 function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
@@ -66,6 +124,14 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 		}
 		if (arg === "--json") {
 			options.json = true;
+			continue;
+		}
+		if (arg === "--sync") {
+			options.sync = true;
+			continue;
+		}
+		if (arg === "--force" || arg === "-f") {
+			options.force = true;
 			continue;
 		}
 		if (arg === "--home") {
@@ -92,5 +158,7 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 }
 
 function printScanHelp(): void {
-	process.stdout.write("Usage: dotagents scan [--home <path>] [--source <path> ...] [--json]\n");
+	process.stdout.write(
+		"Usage: dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force]\n",
+	);
 }

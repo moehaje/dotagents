@@ -34,7 +34,7 @@ export function slugifyName(input: string): string {
 }
 
 export async function ensureHomeRepoStructure(explicitHome?: string): Promise<string> {
-	const home = resolveHomeRepository(explicitHome);
+	const home = await resolveHomeRepository(explicitHome);
 	await fs.mkdir(path.join(home, "prompts"), { recursive: true });
 	await fs.mkdir(path.join(home, "skills"), { recursive: true });
 	return home;
@@ -127,6 +127,21 @@ export async function scanUnsyncedAssets(options: {
 		unsyncedPrompts: uniqueAssets(unsyncedPrompts),
 		unsyncedSkills: uniqueAssets(unsyncedSkills),
 	};
+}
+
+export async function importDiscoveredAssetToHome(options: {
+	home: string;
+	asset: DiscoveredAsset;
+	force?: boolean;
+}): Promise<string> {
+	if (options.asset.kind === "prompt") {
+		const target = path.join(options.home, "prompts", `${options.asset.id}.md`);
+		await copyFile(target, options.asset.path, Boolean(options.force));
+		return target;
+	}
+	const target = path.join(options.home, "skills", options.asset.id);
+	await copyDirectory(target, options.asset.path, Boolean(options.force));
+	return target;
 }
 
 async function discoverPromptsFromSource(source: ScanSource): Promise<DiscoveredAsset[]> {

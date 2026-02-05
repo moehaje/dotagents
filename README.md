@@ -23,17 +23,21 @@ npx tsx src/index.ts --help
 2. `DOTAGENTS_HOME`
 3. Existing defaults:
    - `~/dotagents`
-   - `~/sync/dev/hacking/dot-agents`
-   - `~/sync/dev/dot-agents`
 4. Fallback to `~/dotagents`
+
+Global configuration is stored at `~/.config/dotagents/config.json` (or `$XDG_CONFIG_HOME/dotagents/config.json`).
+
+On first run, `dotagents` bootstraps config and initializes a home repo structure (`prompts`, `skills`, `configs`, `scripts`).
 
 ## Commands
 
 ```bash
 dotagents new <prompt|skill> [name] [--home <path>] [--force]
 dotagents add [prompt|skill] <name> [--to <path>] [--home <path>] [--force]
-dotagents scan [--home <path>] [--source <path> ...] [--json]
+dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync]
+dotagents config [--home <path> --codex <path> --claude <path> --agents <path>]
 dotagents skill <skills-cli-args...>
+dotagents skill sync [--check] [--yes]
 ```
 
 ## Examples
@@ -42,8 +46,10 @@ dotagents skill <skills-cli-args...>
 dotagents new prompt
 dotagents add prompt release
 dotagents add skill terminal-ui
-dotagents scan --json
+dotagents scan --sync
+dotagents config
 dotagents skill add vercel-labs/skills@find-skills
+dotagents skill sync --check
 ```
 
 ## Development
