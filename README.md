@@ -27,6 +27,19 @@
 npm i -g @artsnlabs/dotagents
 ```
 
+Homebrew (tap):
+
+```bash
+brew tap moehaje/tap
+brew install dotagents
+```
+
+Homebrew one-command install:
+
+```bash
+brew install moehaje/tap/dotagents
+```
+
 Without global install:
 
 ```bash
