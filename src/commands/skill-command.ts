@@ -8,6 +8,7 @@ import {
 	readSkillRegistry,
 	type SkillRegistryEntry,
 } from "../core/skill-registry.js";
+import { styleCommand, styleHint, styleLabel } from "../ui/brand.js";
 
 export async function runSkillCommand(args: string[]): Promise<number> {
 	if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
@@ -42,7 +43,7 @@ async function runRegistrySync(args: string[]): Promise<number> {
 	const entries = await readSkillRegistry(home);
 	if (entries.length === 0) {
 		process.stdout.write(
-			`${pc.yellow("No skill registry entries found at")} ${home}/configs/skills-registry.tsv\n`,
+			`${pc.yellow("No skill registry entries found at")} ${styleCommand(`${home}/configs/skills-registry.tsv`)}\n`,
 		);
 		return 0;
 	}
@@ -51,7 +52,7 @@ async function runRegistrySync(args: string[]): Promise<number> {
 	const outdated = statuses.filter((item) => item.status === "outdated" || item.status === "missing-local");
 	const errored = statuses.filter((item) => item.status === "error");
 
-	process.stdout.write(`${pc.bold("Skill registry status")}\n`);
+	process.stdout.write(`${styleLabel("Skill registry status")}\n`);
 	for (const status of statuses) {
 		const label =
 			status.status === "up-to-date"
@@ -95,7 +96,7 @@ async function runRegistrySync(args: string[]): Promise<number> {
 	}
 
 	if (targets.length === 0) {
-		process.stdout.write("No skills selected for update.\n");
+		process.stdout.write(`${styleHint("No skills selected for update.")}\n`);
 		return 0;
 	}
 
@@ -146,10 +147,10 @@ function parseSyncOptions(args: string[]): {
 }
 
 function printSkillHelp(): void {
-	process.stdout.write("Usage:\n");
-	process.stdout.write("  dotagents skill <skills-cli-args...>\n");
-	process.stdout.write("  dotagents skill sync [--check] [--yes] [--home <path>]\n");
-	process.stdout.write("\nExamples:\n");
-	process.stdout.write("  dotagents skill add vercel-labs/skills@find-skills\n");
-	process.stdout.write("  dotagents skill sync --check\n");
+	process.stdout.write(`${styleLabel("Usage")}\n`);
+	process.stdout.write(`  ${styleCommand("dotagents skill <skills-cli-args...>")}\n`);
+	process.stdout.write(`  ${styleCommand("dotagents skill sync [--check] [--yes] [--home <path>]")}\n`);
+	process.stdout.write(`\n${styleLabel("Examples")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents skill add vercel-labs/skills@find-skills")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents skill sync --check")}\n`);
 }

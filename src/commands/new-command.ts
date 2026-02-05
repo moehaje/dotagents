@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { ensureHomeRepoStructure, slugifyName } from "../core/assets.js";
+import { styleCommand, styleError, styleHint } from "../ui/brand.js";
 
 type NewCommandOptions = {
 	home?: string;
@@ -21,7 +22,7 @@ export async function runNewCommand(args: string[]): Promise<number> {
 
 	const kind = parsed.kind ?? "prompt";
 	if (kind !== "prompt" && kind !== "skill") {
-		process.stderr.write(`Invalid asset kind: ${kind}. Use prompt or skill.\n`);
+		process.stderr.write(`${styleError(`Invalid asset kind: ${kind}.`)} ${styleHint("Use prompt or skill.")}\n`);
 		return 2;
 	}
 
@@ -321,8 +322,9 @@ function parseNewArgs(args: string[]): {
 
 function printNewHelp(): void {
 	process.stdout.write(
-		"Usage: dotagents new <prompt|skill> [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]\n",
+		`Usage: ${styleCommand("dotagents new <prompt|skill> [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
 	);
+	process.stdout.write(`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`);
 }
 
 function toTitleCase(value: string): string {

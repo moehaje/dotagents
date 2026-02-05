@@ -1,11 +1,11 @@
 import path from "node:path";
-import pc from "picocolors";
 import {
 	copyPromptFromHome,
 	copySkillFromHome,
 	ensureHomeRepoStructure,
 	slugifyName,
 } from "../core/assets.js";
+import { styleCommand, styleError, styleHint, styleSuccess } from "../ui/brand.js";
 
 type AddOptions = {
 	force?: boolean;
@@ -22,12 +22,12 @@ export async function runAddCommand(args: string[]): Promise<number> {
 
 	const kind = parsed.kind ?? "prompt";
 	if (kind !== "prompt" && kind !== "skill") {
-		process.stderr.write(`Invalid asset kind: ${kind}. Use prompt or skill.\n`);
+		process.stderr.write(`${styleError(`Invalid asset kind: ${kind}.`)} ${styleHint("Use prompt or skill.")}\n`);
 		return 2;
 	}
 
 	if (!parsed.name) {
-		process.stderr.write("Missing asset name.\n");
+		process.stderr.write(`${styleError("Missing asset name.")}\n`);
 		printAddHelp();
 		return 2;
 	}
@@ -35,7 +35,7 @@ export async function runAddCommand(args: string[]): Promise<number> {
 	const home = await ensureHomeRepoStructure(parsed.options.home);
 	const normalizedName = slugifyName(parsed.name);
 	if (!normalizedName) {
-		process.stderr.write("Invalid name.\n");
+		process.stderr.write(`${styleError("Invalid name.")}\n`);
 		return 2;
 	}
 
@@ -49,7 +49,7 @@ export async function runAddCommand(args: string[]): Promise<number> {
 			targetFile,
 			force: parsed.options.force,
 		});
-		process.stdout.write(`${pc.green("Added prompt:")} ${targetFile}\n`);
+		process.stdout.write(`${styleSuccess("Added prompt:")} ${styleCommand(targetFile)}\n`);
 		return 0;
 	}
 
@@ -62,7 +62,7 @@ export async function runAddCommand(args: string[]): Promise<number> {
 		targetDir,
 		force: parsed.options.force,
 	});
-	process.stdout.write(`${pc.green("Added skill:")} ${targetDir}\n`);
+	process.stdout.write(`${styleSuccess("Added skill:")} ${styleCommand(targetDir)}\n`);
 	return 0;
 }
 
@@ -124,5 +124,6 @@ function parseAddArgs(args: string[]): {
 }
 
 function printAddHelp(): void {
-	process.stdout.write("Usage: dotagents add [prompt|skill] <name> [--to <path>] [--home <path>] [--force]\n");
+	process.stdout.write(`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--home <path>] [--force]")}\n`);
+	process.stdout.write(`  ${styleHint("Copy a prompt or skill from your home repo into the current project.")}\n`);
 }

@@ -38,27 +38,51 @@ export function printBanner(): void {
 export function printHelp(version: string): void {
 	process.stdout.write(`${pc.bold("dotagents")} ${pc.dim(`v${version}`)}\n\n`);
 	process.stdout.write(`${pc.bold("Usage")}\n`);
-	process.stdout.write("  dotagents <command> [options]\n\n");
+	process.stdout.write(`  ${styleCommand("dotagents <command> [options]")}\n\n`);
 	process.stdout.write(`${pc.bold("Commands")}\n`);
-	process.stdout.write("  new <prompt|skill> [name]   Create a new asset in dotagents home\n");
-	process.stdout.write("  add [prompt|skill] <name>   Copy an asset from home to current project\n");
-	process.stdout.write("  scan                        Scan agent directories for unsynced assets\n");
-	process.stdout.write("  config                      Configure global paths and home repo\n");
-	process.stdout.write("  skill <args...>             Passthrough to `npx skills <args...>`\n");
-	process.stdout.write("  --help, -h                  Show help\n");
-	process.stdout.write("  --version, -v               Show version\n\n");
-	process.stdout.write(`${pc.bold("Examples")}\n`);
-	process.stdout.write("  dotagents new prompt\n");
-	process.stdout.write("  dotagents add prompt release\n");
-	process.stdout.write("  dotagents add skill terminal-ui --force\n");
-	process.stdout.write("  dotagents scan --sync\n");
-	process.stdout.write("  dotagents config\n");
-	process.stdout.write("  dotagents skill add vercel-labs/skills@find-skills\n");
-	process.stdout.write("  dotagents skill sync --check\n");
+	writeHelpRow("new <prompt|skill> [name]", "Create a new asset in dotagents home");
+	writeHelpRow("add [prompt|skill] <name>", "Copy an asset from home to current project");
+	writeHelpRow("scan", "Scan agent directories for unsynced assets");
+	writeHelpRow("config", "Configure global paths and home repo");
+	writeHelpRow("skill <args...>", "Passthrough to `npx skills <args...>`");
+	writeHelpRow("--help, -h", "Show help");
+	writeHelpRow("--version, -v", "Show version");
+	process.stdout.write(`\n${pc.bold("Examples")}\n`);
+	writeExample("dotagents new prompt");
+	writeExample("dotagents add prompt release");
+	writeExample("dotagents add skill terminal-ui --force");
+	writeExample("dotagents scan --sync");
+	writeExample("dotagents config");
+	writeExample("dotagents skill add vercel-labs/skills@find-skills");
+	writeExample("dotagents skill sync --check");
 }
 
 export function styleBadge(text: string): string {
 	return withBackground(` ${text} `, parseHexColor(BADGE_BG), parseHexColor(BADGE_FG));
+}
+
+export function styleCommand(text: string): string {
+	return pc.white(text);
+}
+
+export function styleHint(text: string): string {
+	return pc.dim(text);
+}
+
+export function styleLabel(text: string): string {
+	return pc.bold(text);
+}
+
+export function styleSuccess(text: string): string {
+	return pc.green(text);
+}
+
+export function styleWarning(text: string): string {
+	return pc.yellow(text);
+}
+
+export function styleError(text: string): string {
+	return pc.red(text);
 }
 
 function parseHexColor(hex: string): [number, number, number] {
@@ -100,4 +124,12 @@ function withBackground(
 
 function withDim(text: string): string {
 	return `\u001B[2m${text}\u001B[0m`;
+}
+
+function writeHelpRow(command: string, description: string): void {
+	process.stdout.write(`  ${styleCommand(command.padEnd(30))} ${styleHint(description)}\n`);
+}
+
+function writeExample(command: string): void {
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand(command)}\n`);
 }

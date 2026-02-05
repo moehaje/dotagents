@@ -13,7 +13,7 @@ import {
 	saveGlobalConfig,
 	type DotagentsGlobalConfig,
 } from "./config.js";
-import { styleBadge } from "../ui/brand.js";
+import { styleBadge, styleCommand, styleHint } from "../ui/brand.js";
 
 export async function ensureConfiguredForRun(): Promise<DotagentsGlobalConfig> {
 	const existing = await loadGlobalConfig();
@@ -35,7 +35,7 @@ export async function ensureConfiguredForRun(): Promise<DotagentsGlobalConfig> {
 
 export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
 	p.intro(styleBadge("dotagents"));
-	p.log.info(`No global config found at ${getGlobalConfigPath()}.`);
+	p.log.info(`No global config found at ${styleCommand(getGlobalConfigPath())}.`);
 
 	const hasExisting = await p.confirm({
 		message: "Do you already have an agents home repository?",
@@ -130,7 +130,7 @@ export async function runFirstRunSetup(): Promise<DotagentsGlobalConfig> {
 		customSources: [],
 	};
 	await saveGlobalConfig(config);
-	p.outro(pc.green(`Saved global config: ${getGlobalConfigPath()}`));
+	p.outro(pc.green(`Saved global config: ${styleCommand(getGlobalConfigPath())}`));
 	return config;
 }
 
@@ -176,7 +176,7 @@ export async function initializeHomeRepository(
 	if (options.initializeGit && !(await pathExists(path.join(homeRepo, ".git")))) {
 		const result = spawnSync("git", ["init"], { cwd: homeRepo, stdio: "ignore" });
 		if (result.status !== 0) {
-			p.log.warn("Could not initialize git automatically. Run `git init` in your home repo.");
+			p.log.warn(`Could not initialize git automatically. ${styleHint("Run")} ${styleCommand("git init")} ${styleHint("in your home repo.")}`);
 		}
 	}
 }

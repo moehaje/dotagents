@@ -6,7 +6,7 @@ import { runNewCommand } from "./commands/new-command.js";
 import { runScanCommand } from "./commands/scan-command.js";
 import { runSkillCommand } from "./commands/skill-command.js";
 import { ensureConfiguredForRun } from "./core/bootstrap.js";
-import { printBanner, printHelp } from "./ui/brand.js";
+import { printBanner, printHelp, styleError } from "./ui/brand.js";
 
 export async function runCli(argv: string[]): Promise<number> {
 	const [command, ...rest] = argv;
@@ -41,12 +41,12 @@ export async function runCli(argv: string[]): Promise<number> {
 			return await runSkillCommand(rest);
 		}
 
-		process.stderr.write(`Unknown command: ${command}\n`);
+		process.stderr.write(`${styleError(`Unknown command: ${command}`)}\n`);
 		printHelp(readVersion());
 		return 2;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		process.stderr.write(`${message}\n`);
+		process.stderr.write(`${styleError(message)}\n`);
 		return 1;
 	}
 }

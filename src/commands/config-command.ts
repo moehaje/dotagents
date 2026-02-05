@@ -10,6 +10,7 @@ import {
 	type DotagentsGlobalConfig,
 } from "../core/config.js";
 import { initializeHomeRepository, runFirstRunSetup } from "../core/bootstrap.js";
+import { styleCommand, styleHint, styleLabel, styleSuccess } from "../ui/brand.js";
 
 type ConfigOptions = {
 	home?: string;
@@ -62,7 +63,7 @@ export async function runConfigCommand(args: string[]): Promise<number> {
 	}
 
 	if (args.length > 0 && !options.help) {
-		process.stdout.write(`${pc.green("Updated config at")} ${getGlobalConfigPath()}\n`);
+		process.stdout.write(`${styleSuccess("Updated config at")} ${styleCommand(getGlobalConfigPath())}\n`);
 		return 0;
 	}
 
@@ -211,13 +212,14 @@ async function promptPath(message: string, initialValue: string): Promise<string
 }
 
 function printConfigHelp(): void {
-	process.stdout.write("Usage: dotagents config [options]\n");
-	process.stdout.write("  --home <path>      Set home repo path\n");
-	process.stdout.write("  --codex <path>     Set codex path\n");
-	process.stdout.write("  --claude <path>    Set claude path\n");
-	process.stdout.write("  --agents <path>    Set generic .agents path\n");
-	process.stdout.write("  --source <path>    Add custom scan source (repeatable)\n");
-	process.stdout.write("  --clear-sources    Clear all custom sources\n");
-	process.stdout.write("  --list             Print config as JSON\n");
-	process.stdout.write("  --json             Print config as JSON\n");
+	process.stdout.write(`${styleLabel("Usage")}: ${styleCommand("dotagents config [options]")}\n`);
+	process.stdout.write(`${styleLabel("Options")}\n`);
+	process.stdout.write(`  ${styleCommand("--home <path>")}      ${styleHint("Set home repo path")}\n`);
+	process.stdout.write(`  ${styleCommand("--codex <path>")}     ${styleHint("Set codex path")}\n`);
+	process.stdout.write(`  ${styleCommand("--claude <path>")}    ${styleHint("Set claude path")}\n`);
+	process.stdout.write(`  ${styleCommand("--agents <path>")}    ${styleHint("Set generic .agents path")}\n`);
+	process.stdout.write(`  ${styleCommand("--source <path>")}    ${styleHint("Add custom scan source (repeatable)")}\n`);
+	process.stdout.write(`  ${styleCommand("--clear-sources")}    ${styleHint("Clear all custom sources")}\n`);
+	process.stdout.write(`  ${styleCommand("--list")}             ${styleHint("Print config as JSON")}\n`);
+	process.stdout.write(`  ${styleCommand("--json")}             ${styleHint("Print config as JSON")}\n`);
 }
