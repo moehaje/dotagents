@@ -53,14 +53,15 @@
 	],
 	"scripts": {
 		"clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-		"generate-licenses": "node scripts/generate-licenses.js",
-		"build": "npm run clean && npm run generate-licenses && tsc -p tsconfig.json && node scripts/ensure-shebang.js",
+		"generate-licenses": "tsx scripts/generate-licenses.ts",
+		"build": "npm run clean && npm run generate-licenses && tsc -p tsconfig.json && tsx scripts/ensure-shebang.ts",
 		"dev": "tsx src/index.ts",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"lint": "biome lint .",
 		"prepare": "husky",
 		"prepack": "npm run build",
+		"release:homebrew-metadata": "tsx scripts/homebrew-metadata.ts --formula",
 		"test": "vitest run",
 		"type-check": "tsc -p tsconfig.json --noEmit"
 	},

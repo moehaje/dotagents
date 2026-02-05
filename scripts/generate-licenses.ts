@@ -4,7 +4,12 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-function getLicenseText(pkgPath) {
+type LicenseInfo = {
+	licenses?: string;
+	repository?: string;
+};
+
+function getLicenseText(pkgPath: string): string {
 	const possibleFiles = ["LICENSE", "LICENSE.md", "LICENSE.txt", "license", "license.md"];
 	for (const file of possibleFiles) {
 		const filePath = join(pkgPath, file);
@@ -15,7 +20,7 @@ function getLicenseText(pkgPath) {
 	return "";
 }
 
-function normalizePackageName(packageWithVersion) {
+function normalizePackageName(packageWithVersion: string): string {
 	if (packageWithVersion.startsWith("@")) {
 		const match = packageWithVersion.match(/^(@[^/]+\/[^@]+)@/);
 		return match ? match[1] : packageWithVersion;
@@ -24,16 +29,16 @@ function normalizePackageName(packageWithVersion) {
 	return index > 0 ? packageWithVersion.slice(0, index) : packageWithVersion;
 }
 
-function main() {
+function main(): void {
 	process.stdout.write("Generating ThirdPartyNoticeText.txt...\n");
 
 	const output = execSync("npx --no-install license-checker --production --json", {
 		encoding: "utf-8",
 	});
-	const licenses = JSON.parse(output);
+	const licenses = JSON.parse(output) as Record<string, LicenseInfo>;
 	const entries = Object.entries(licenses).sort(([left], [right]) => left.localeCompare(right));
 
-	const lines = [
+	const lines: string[] = [
 		"/*!----------------- dotagents ThirdPartyNotices -------------------------------------------------------",
 		"",
 		"The dotagents CLI incorporates third party material from the projects listed below.",
