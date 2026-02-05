@@ -6,10 +6,12 @@ import { runNewCommand } from "./commands/new-command.js";
 import { runScanCommand } from "./commands/scan-command.js";
 import { runSkillCommand } from "./commands/skill-command.js";
 import { ensureConfiguredForRun } from "./core/bootstrap.js";
-import { printHelp } from "./ui/brand.js";
+import { printBanner, printHelp } from "./ui/brand.js";
 
 export async function runCli(argv: string[]): Promise<number> {
 	const [command, ...rest] = argv;
+	printBanner();
+
 	if (!command || command === "--help" || command === "-h" || command === "help") {
 		printHelp(readVersion());
 		return 0;
