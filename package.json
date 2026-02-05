@@ -1,6 +1,6 @@
 {
 	"name": "@artsnlabs/dotagents",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "CLI for managing agents assets from a canonical dotagents repo.",
 	"license": "MIT",
 	"author": "Moe Haje <hello@moee.dev> (https://moee.dev)",

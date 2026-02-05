@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-02-05
+
+### Added
+
+- Add Homebrew installation documentation and one-command tap install instructions.
+- Add release automation jobs to update `moehaje/homebrew-tap` formula on release publish and manual dispatch.
+- Add `scripts/homebrew-metadata.ts` and `npm run release:homebrew-metadata` to resolve npm tarball metadata and formula content.
+- Add generated `ThirdPartyNoticeText.txt` as part of packaged release artifacts.
+
+### Changed
+
+- Migrate maintenance scripts from JavaScript to TypeScript (`ensure-shebang`, `generate-licenses`, `homebrew-metadata`).
+- Update build/release script commands to run script tooling via `tsx`.
+- Improve public package guidance in README for global install and project health links.
+
 ## [0.1.0] - 2026-02-05
 
 ### Added
