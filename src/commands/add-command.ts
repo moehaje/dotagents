@@ -195,7 +195,7 @@ function parseAddArgs(args: string[]): {
 		};
 	}
 	return {
-		kind: "prompt",
+		kind: undefined,
 		name: first,
 		options,
 	};
