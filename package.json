@@ -1,5 +1,5 @@
 {
-	"name": "dotagents",
+	"name": "@artsnlabs/dotagents",
 	"version": "0.1.0",
 	"description": "CLI for managing agents assets from a canonical dotagents repo.",
 	"license": "MIT",
