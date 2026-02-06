@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-02-06
+
+### Added
+
+- Add `dotagents create` as the primary asset creation command while keeping `dotagents new` as a compatible alias.
+- Add interactive post-create install flow to place newly created prompts/skills into project and global agent destinations.
+- Expand scan source coverage across more agent tooling locations.
+- Add richer scan status buckets for synced/git-tracked, synced/untracked, and unsynced assets.
+
+### Changed
+
+- Improve default scan source output with summarized active/configured counts.
+- Update public package metadata and README positioning to emphasize dotagents as a unified management CLI.
+
+### Fixed
+
+- Fix create/install output clarity by removing duplicated destination path rendering.
+- Fix `dotagents new` UX by prompting for asset kind when omitted.
+
 ## [0.2.0] - 2026-02-05
 
 ### Added
