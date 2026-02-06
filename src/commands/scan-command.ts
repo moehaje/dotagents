@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import { homedir } from "node:os";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import {
@@ -18,6 +20,7 @@ type ScanOptions = {
 	sources: string[];
 	sync?: boolean;
 	force?: boolean;
+	sourcesFull?: boolean;
 };
 
 type ScanState = "synced-tracked" | "synced-untracked" | "unsynced-untracked";
@@ -37,9 +40,12 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	}
 
 	const home = await ensureHomeRepoStructure(options.home);
+	const sources = await defaultScanSources(options.sources);
+	const sourceRoots = sources.map((source) => source.root);
+	const activeSourceRoots = await listExistingDirectories(sourceRoots);
 	const report = await scanUnsyncedAssets({
 		home,
-		sources: await defaultScanSources(options.sources),
+		sources,
 	});
 	const [homePromptIds, homeSkillIds, trackedFiles] = await Promise.all([
 		listHomePromptIds(home),
@@ -61,7 +67,7 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	process.stdout.write(`${pc.bold("dotagents scan")}\n`);
 	process.stdout.write(`${styleLabel("home")}: ${pc.cyan(report.home)}\n`);
 	process.stdout.write(
-		`${styleLabel("sources")}: ${styleHint(report.scannedSources.join(", "))}\n\n`,
+		`${styleLabel("sources")}: ${formatSourcesSummary(sourceRoots, activeSourceRoots, options.sourcesFull)}\n\n`,
 	);
 
 	printStatusSection(
@@ -256,6 +262,10 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 			options.force = true;
 			continue;
 		}
+		if (arg === "--sources-full") {
+			options.sourcesFull = true;
+			continue;
+		}
 		if (arg === "--home") {
 			const value = args[index + 1];
 			if (!value || value.startsWith("-")) {
@@ -281,9 +291,57 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 
 function printScanHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force]")}\n`,
+		`Usage: ${styleCommand("dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force] [--sources-full]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("--sync opens interactive multi-select when unsynced assets are found.")}\n`,
 	);
+	process.stdout.write(
+		`  ${styleHint("--sources-full prints all configured source paths instead of summary.")}\n`,
+	);
+}
+
+function formatSourcesSummary(
+	allRoots: string[],
+	activeRoots: string[],
+	sourcesFull = false,
+): string {
+	if (sourcesFull) {
+		return styleHint(allRoots.join(", "));
+	}
+	const sampleSize = 4;
+	const sample = activeRoots.slice(0, sampleSize).map(shortenPath);
+	const summary = `${activeRoots.length} active of ${allRoots.length} configured`;
+	if (sample.length === 0) {
+		return styleHint(summary);
+	}
+	const suffix = activeRoots.length > sample.length ? ", ..." : "";
+	return styleHint(`${summary} (${sample.join(", ")}${suffix})`);
+}
+
+async function listExistingDirectories(roots: string[]): Promise<string[]> {
+	const checks = await Promise.all(
+		roots.map(async (root) => ({
+			root,
+			exists: await directoryExists(root),
+		})),
+	);
+	return checks.filter((item) => item.exists).map((item) => item.root);
+}
+
+async function directoryExists(targetPath: string): Promise<boolean> {
+	try {
+		const stats = await fs.stat(targetPath);
+		return stats.isDirectory();
+	} catch {
+		return false;
+	}
+}
+
+function shortenPath(targetPath: string): string {
+	const homePath = homedir();
+	if (!targetPath.startsWith(homePath)) {
+		return targetPath;
+	}
+	return targetPath.replace(homePath, "~");
 }
