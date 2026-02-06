@@ -6,17 +6,17 @@ import pc from "picocolors";
 import { ensureHomeRepoStructure, slugifyName } from "../core/assets.js";
 import { styleCommand, styleError, styleHint } from "../ui/brand.js";
 
-type NewCommandOptions = {
+type CreateCommandOptions = {
 	home?: string;
 	force?: boolean;
 	contentFile?: string;
 	contentStdin?: boolean;
 };
 
-export async function runNewCommand(args: string[]): Promise<number> {
-	const parsed = parseNewArgs(args);
+export async function runCreateCommand(args: string[]): Promise<number> {
+	const parsed = parseCreateArgs(args);
 	if (parsed.help) {
-		printNewHelp();
+		printCreateHelp();
 		return 0;
 	}
 
@@ -34,15 +34,15 @@ export async function runNewCommand(args: string[]): Promise<number> {
 
 	const home = await ensureHomeRepoStructure(parsed.options.home);
 	if (kind === "prompt") {
-		return runNewPrompt(home, parsed.name, parsed.options);
+		return runCreatePrompt(home, parsed.name, parsed.options);
 	}
-	return runNewSkill(home, parsed.name, parsed.options);
+	return runCreateSkill(home, parsed.name, parsed.options);
 }
 
-async function runNewPrompt(
+async function runCreatePrompt(
 	home: string,
 	name: string | undefined,
-	options: NewCommandOptions,
+	options: CreateCommandOptions,
 ): Promise<number> {
 	p.intro(pc.cyan("Create prompt"));
 
@@ -118,10 +118,10 @@ async function runNewPrompt(
 	return 0;
 }
 
-async function runNewSkill(
+async function runCreateSkill(
 	home: string,
 	name: string | undefined,
-	options: NewCommandOptions,
+	options: CreateCommandOptions,
 ): Promise<number> {
 	p.intro(pc.cyan("Create skill"));
 	const skillName = name ?? (await askRequired("Skill name"));
@@ -202,7 +202,7 @@ async function askWithDefault(message: string, defaultValue: string): Promise<st
 	return toTrimmedString(value);
 }
 
-async function resolvePromptContent(options: NewCommandOptions): Promise<string | null> {
+async function resolvePromptContent(options: CreateCommandOptions): Promise<string | null> {
 	if (options.contentFile) {
 		const raw = await fs.readFile(path.resolve(options.contentFile), "utf8");
 		const content = raw.trimEnd();
@@ -298,14 +298,14 @@ async function readAllStdin(): Promise<string> {
 	return content;
 }
 
-function parseNewArgs(args: string[]): {
+function parseCreateArgs(args: string[]): {
 	kind?: string;
 	name?: string;
 	help?: boolean;
-	options: NewCommandOptions;
+	options: CreateCommandOptions;
 } {
 	const positionals: string[] = [];
-	const options: NewCommandOptions = {};
+	const options: CreateCommandOptions = {};
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -359,9 +359,9 @@ function parseNewArgs(args: string[]): {
 	};
 }
 
-function printNewHelp(): void {
+function printCreateHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents new [prompt|skill] [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
+		`Usage: ${styleCommand("dotagents create [prompt|skill] [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`,
@@ -369,6 +369,7 @@ function printNewHelp(): void {
 	process.stdout.write(
 		`  ${styleHint("If kind is omitted in interactive mode, you'll choose prompt or skill.")}\n`,
 	);
+	process.stdout.write(`  ${styleHint("`dotagents new` remains supported as an alias.")}\n`);
 }
 
 function toTitleCase(value: string): string {

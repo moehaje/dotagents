@@ -40,7 +40,8 @@ export function printHelp(version: string): void {
 	process.stdout.write(`${pc.bold("Usage")}\n`);
 	process.stdout.write(`  ${styleCommand("dotagents <command> [options]")}\n\n`);
 	process.stdout.write(`${pc.bold("Commands")}\n`);
-	writeHelpRow("new <prompt|skill> [name]", "Create a new asset in dotagents home");
+	writeHelpRow("create <prompt|skill> [name]", "Create an asset in dotagents home");
+	writeHelpRow("new <prompt|skill> [name]", "Alias for create");
 	writeHelpRow("add [prompt|skill] <name>", "Copy an asset from home to current project");
 	writeHelpRow("scan", "Scan agent directories for unsynced assets");
 	writeHelpRow("config", "Configure global paths and home repo");
@@ -48,7 +49,7 @@ export function printHelp(version: string): void {
 	writeHelpRow("--help, -h", "Show help");
 	writeHelpRow("--version, -v", "Show version");
 	process.stdout.write(`\n${pc.bold("Examples")}\n`);
-	writeExample("dotagents new prompt");
+	writeExample("dotagents create prompt");
 	writeExample("dotagents add prompt release");
 	writeExample("dotagents add skill terminal-ui --force");
 	writeExample("dotagents scan --sync");

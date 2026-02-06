@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { runAddCommand } from "./commands/add-command.js";
 import { runConfigCommand } from "./commands/config-command.js";
-import { runNewCommand } from "./commands/new-command.js";
+import { runCreateCommand } from "./commands/create-command.js";
 import { runScanCommand } from "./commands/scan-command.js";
 import { runSkillCommand } from "./commands/skill-command.js";
 import { ensureConfiguredForRun } from "./core/bootstrap.js";
@@ -28,8 +28,8 @@ export async function runCli(argv: string[]): Promise<number> {
 		// Initialize global config and home repo layout on first run.
 		await ensureConfiguredForRun();
 
-		if (command === "new") {
-			return await runNewCommand(rest);
+		if (command === "create" || command === "new") {
+			return await runCreateCommand(rest);
 		}
 		if (command === "add") {
 			return await runAddCommand(rest);

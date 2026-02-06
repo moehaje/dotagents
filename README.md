@@ -50,7 +50,7 @@ npx @artsnlabs/dotagents --help
 
 ```bash
 dotagents --help
-dotagents new prompt
+dotagents create prompt
 dotagents add prompt release
 dotagents add skill terminal-ui
 dotagents scan --sync
@@ -62,7 +62,7 @@ dotagents skill sync --check
 ## Command Surface
 
 ```bash
-dotagents new <prompt|skill> [name] [--home <path>] [--force]
+dotagents create [prompt|skill] [name] [--home <path>] [--force]
 dotagents add [prompt|skill] [name] [--to <path>] [--home <path>] [--force]
 dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force]
 dotagents config [--home <path> --codex <path> --claude <path> --agents <path>]
@@ -71,6 +71,7 @@ dotagents skill sync [--check] [--yes] [--home <path>]
 ```
 
 If `dotagents add` is run without kind or name in interactive mode, it prompts to select the asset kind and asset(s) from home.
+`dotagents new` is kept as a compatibility alias for `dotagents create`.
 
 ## Home Repo Resolution
 
