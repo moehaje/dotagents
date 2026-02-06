@@ -10,7 +10,14 @@ import {
 	slugifyName,
 } from "../core/assets.js";
 import { loadGlobalConfig } from "../core/config.js";
-import { styleCommand, styleError, styleHint, styleSuccess, styleWarning } from "../ui/brand.js";
+import {
+	styleCommand,
+	styleError,
+	styleHint,
+	styleLabel,
+	styleSuccess,
+	styleWarning,
+} from "../ui/brand.js";
 
 type CreateCommandOptions = {
 	home?: string;
@@ -25,6 +32,7 @@ type InstallTarget = {
 	id: string;
 	label: string;
 	path: string;
+	hint?: string;
 };
 
 export async function runCreateCommand(args: string[]): Promise<number> {
@@ -248,7 +256,11 @@ async function maybeInstallCreatedAsset(options: {
 
 	const selected = await p.multiselect({
 		message: "Select installation destinations",
-		options: targets.map((target) => ({ value: target.id, label: target.label })),
+		options: targets.map((target) => ({
+			value: target.id,
+			label: target.label,
+			hint: target.hint,
+		})),
 	});
 	if (p.isCancel(selected)) {
 		return "canceled";
@@ -282,7 +294,7 @@ async function maybeInstallCreatedAsset(options: {
 			}
 			installedCount += 1;
 			process.stdout.write(
-				`${styleSuccess(`Added ${options.kind} to`)} ${target.label}: ${styleCommand(target.path)}\n`,
+				`${styleSuccess(`Added ${options.kind} to`)} ${styleLabel(target.label)} ${styleHint(`(${target.path})`)}\n`,
 			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
@@ -303,8 +315,9 @@ async function buildInstallTargets(kind: AssetKind, assetId: string): Promise<In
 			: path.join(process.cwd(), ".agents", "skills", assetId);
 	addInstallTarget(targets, seenPaths, {
 		id: "project",
-		label: `Project (.agents) (${projectPath})`,
+		label: "Project (.agents)",
 		path: projectPath,
+		hint: projectPath,
 	});
 
 	const config = await loadGlobalConfig();
@@ -329,8 +342,9 @@ async function buildInstallTargets(kind: AssetKind, assetId: string): Promise<In
 				: path.join(source.root, "skills", assetId);
 		addInstallTarget(targets, seenPaths, {
 			id: `global-${index}`,
-			label: `${source.label} (${source.root})`,
+			label: source.label,
 			path: targetPath,
+			hint: source.root,
 		});
 	}
 
