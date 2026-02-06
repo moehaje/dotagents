@@ -3,14 +3,28 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
-import { ensureHomeRepoStructure, slugifyName } from "../core/assets.js";
-import { styleCommand, styleError, styleHint } from "../ui/brand.js";
+import {
+	copyPromptFromHome,
+	copySkillFromHome,
+	ensureHomeRepoStructure,
+	slugifyName,
+} from "../core/assets.js";
+import { loadGlobalConfig } from "../core/config.js";
+import { styleCommand, styleError, styleHint, styleSuccess, styleWarning } from "../ui/brand.js";
 
 type CreateCommandOptions = {
 	home?: string;
 	force?: boolean;
 	contentFile?: string;
 	contentStdin?: boolean;
+};
+
+type AssetKind = "prompt" | "skill";
+
+type InstallTarget = {
+	id: string;
+	label: string;
+	path: string;
 };
 
 export async function runCreateCommand(args: string[]): Promise<number> {
@@ -114,7 +128,22 @@ async function runCreatePrompt(
 	await fs.mkdir(path.dirname(promptFile), { recursive: true });
 	await fs.writeFile(promptFile, fileContents, "utf8");
 
-	p.outro(pc.green(`Created ${promptFile}`));
+	const installResult = await maybeInstallCreatedAsset({
+		kind: "prompt",
+		assetId: slug,
+		home,
+		force: Boolean(options.force),
+	});
+	if (installResult === "canceled") {
+		p.cancel("Canceled.");
+		return 130;
+	}
+
+	const summarySuffix =
+		installResult.installedCount > 0
+			? pc.dim(` (installed to ${installResult.installedCount} destination(s))`)
+			: "";
+	p.outro(pc.green(`Created ${promptFile}${summarySuffix}`));
 	return 0;
 }
 
@@ -171,8 +200,154 @@ async function runCreateSkill(
 	await fs.mkdir(skillDir, { recursive: true });
 	await fs.writeFile(skillFile, template, "utf8");
 
-	p.outro(pc.green(`Created ${skillFile}`));
+	const installResult = await maybeInstallCreatedAsset({
+		kind: "skill",
+		assetId: slug,
+		home,
+		force: Boolean(options.force),
+	});
+	if (installResult === "canceled") {
+		p.cancel("Canceled.");
+		return 130;
+	}
+
+	const summarySuffix =
+		installResult.installedCount > 0
+			? pc.dim(` (installed to ${installResult.installedCount} destination(s))`)
+			: "";
+	p.outro(pc.green(`Created ${skillFile}${summarySuffix}`));
 	return 0;
+}
+
+async function maybeInstallCreatedAsset(options: {
+	kind: AssetKind;
+	assetId: string;
+	home: string;
+	force: boolean;
+}): Promise<{ installedCount: number } | "canceled"> {
+	if (!process.stdout.isTTY || !process.stdin.isTTY) {
+		return { installedCount: 0 };
+	}
+
+	const confirmInstall = await p.confirm({
+		message: `Use this ${options.kind} now by adding it to project/global destinations?`,
+		initialValue: false,
+	});
+	if (p.isCancel(confirmInstall)) {
+		return "canceled";
+	}
+	if (!confirmInstall) {
+		return { installedCount: 0 };
+	}
+
+	const targets = await buildInstallTargets(options.kind, options.assetId);
+	if (targets.length === 0) {
+		p.log.info("No installation destinations available.");
+		return { installedCount: 0 };
+	}
+
+	const selected = await p.multiselect({
+		message: "Select installation destinations",
+		options: targets.map((target) => ({ value: target.id, label: target.label })),
+	});
+	if (p.isCancel(selected)) {
+		return "canceled";
+	}
+	if (selected.length === 0) {
+		p.log.info("No destinations selected.");
+		return { installedCount: 0 };
+	}
+
+	let installedCount = 0;
+	for (const selectedId of selected) {
+		const target = targets.find((item) => item.id === selectedId);
+		if (!target) {
+			continue;
+		}
+		try {
+			if (options.kind === "prompt") {
+				await copyPromptFromHome({
+					home: options.home,
+					name: options.assetId,
+					targetFile: target.path,
+					force: options.force,
+				});
+			} else {
+				await copySkillFromHome({
+					home: options.home,
+					name: options.assetId,
+					targetDir: target.path,
+					force: options.force,
+				});
+			}
+			installedCount += 1;
+			process.stdout.write(
+				`${styleSuccess(`Added ${options.kind} to`)} ${target.label}: ${styleCommand(target.path)}\n`,
+			);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			process.stdout.write(`${styleWarning(`Skipped ${target.label}:`)} ${styleHint(message)}\n`);
+		}
+	}
+
+	return { installedCount };
+}
+
+async function buildInstallTargets(kind: AssetKind, assetId: string): Promise<InstallTarget[]> {
+	const targets: InstallTarget[] = [];
+	const seenPaths = new Set<string>();
+
+	const projectPath =
+		kind === "prompt"
+			? path.join(process.cwd(), ".agents", "prompts", `${assetId}.md`)
+			: path.join(process.cwd(), ".agents", "skills", assetId);
+	addInstallTarget(targets, seenPaths, {
+		id: "project",
+		label: `Project (.agents) (${projectPath})`,
+		path: projectPath,
+	});
+
+	const config = await loadGlobalConfig();
+	if (!config) {
+		return targets;
+	}
+
+	const globalRoots = [
+		{ label: "Global: codex", root: config.agents.codex },
+		{ label: "Global: claude", root: config.agents.claude },
+		{ label: "Global: agents", root: config.agents.agents },
+		...config.customSources.map((root, index) => ({
+			label: `Global: custom ${index + 1}`,
+			root,
+		})),
+	];
+
+	for (const [index, source] of globalRoots.entries()) {
+		const targetPath =
+			kind === "prompt"
+				? path.join(source.root, "prompts", `${assetId}.md`)
+				: path.join(source.root, "skills", assetId);
+		addInstallTarget(targets, seenPaths, {
+			id: `global-${index}`,
+			label: `${source.label} (${source.root})`,
+			path: targetPath,
+		});
+	}
+
+	return targets;
+}
+
+function addInstallTarget(
+	targets: InstallTarget[],
+	seenPaths: Set<string>,
+	target: InstallTarget,
+): void {
+	const normalized = path.resolve(target.path);
+	if (seenPaths.has(normalized)) {
+		return;
+	}
+	seenPaths.add(normalized);
+	targets.push({ ...target, path: normalized });
 }
 
 async function askRequired(message: string): Promise<string | null> {
@@ -368,6 +543,9 @@ function printCreateHelp(): void {
 	);
 	process.stdout.write(
 		`  ${styleHint("If kind is omitted in interactive mode, you'll choose prompt or skill.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("After creation, interactive mode can install the asset to project and/or global agent paths.")}\n`,
 	);
 	process.stdout.write(`  ${styleHint("`dotagents new` remains supported as an alias.")}\n`);
 }

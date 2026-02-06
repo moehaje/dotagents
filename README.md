@@ -10,6 +10,7 @@
 ## Features
 
 - Create prompts and skills in a tracked home repo.
+- Optionally install newly created assets to project or configured global agent paths.
 - Add prompts and skills into the current project quickly.
 - Scan agent directories to find unsynced assets.
 - Sync skills using a registry-driven workflow.
