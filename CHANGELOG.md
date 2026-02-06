@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-02-07
+
+### Fixed
+
+- Fix CLI version reporting so `dotagents -v` always returns dotagents' own version instead of using the current working directory's `package.json`.
+
 ## [0.3.0] - 2026-02-06
 
 ### Added
