@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import path from "node:path";
 import { runAddCommand } from "./commands/add-command.js";
 import { runConfigCommand } from "./commands/config-command.js";
 import { runCreateCommand } from "./commands/create-command.js";
@@ -53,11 +52,6 @@ export async function runCli(argv: string[]): Promise<number> {
 
 function readVersion(): string {
 	try {
-		const packagePath = path.join(process.cwd(), "package.json");
-		if (fs.existsSync(packagePath)) {
-			const parsed = JSON.parse(fs.readFileSync(packagePath, "utf8")) as { version?: string };
-			return parsed.version ?? "0.0.0";
-		}
 		const packageUrl = new URL("../package.json", import.meta.url);
 		const parsed = JSON.parse(fs.readFileSync(packageUrl, "utf8")) as { version?: string };
 		return parsed.version ?? "0.0.0";
