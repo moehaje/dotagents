@@ -20,7 +20,11 @@ export async function runNewCommand(args: string[]): Promise<number> {
 		return 0;
 	}
 
-	const kind = parsed.kind ?? "prompt";
+	const kind = parsed.kind ?? (await resolveInteractiveKind());
+	if (!kind) {
+		p.cancel("Canceled.");
+		return 130;
+	}
 	if (kind !== "prompt" && kind !== "skill") {
 		process.stderr.write(
 			`${styleError(`Invalid asset kind: ${kind}.`)} ${styleHint("Use prompt or skill.")}\n`,
@@ -235,6 +239,23 @@ async function resolvePromptContent(options: NewCommandOptions): Promise<string 
 	return await readMultilineInput();
 }
 
+async function resolveInteractiveKind(): Promise<"prompt" | "skill" | null> {
+	if (!process.stdout.isTTY || !process.stdin.isTTY) {
+		return "prompt";
+	}
+	const selected = await p.select({
+		message: "Asset kind",
+		options: [
+			{ value: "prompt", label: "Prompt" },
+			{ value: "skill", label: "Skill" },
+		],
+	});
+	if (p.isCancel(selected)) {
+		return null;
+	}
+	return selected;
+}
+
 async function readMultilineInput(): Promise<string | null> {
 	p.log.info("Paste markdown content below. End input with a line containing only: EOF");
 
@@ -323,19 +344,30 @@ function parseNewArgs(args: string[]): {
 		positionals.push(arg);
 	}
 
+	const first = positionals[0];
+	if (first === "prompt" || first === "skill") {
+		return {
+			kind: first,
+			name: positionals[1],
+			options,
+		};
+	}
 	return {
-		kind: positionals[0],
-		name: positionals[1],
+		kind: undefined,
+		name: first,
 		options,
 	};
 }
 
 function printNewHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents new <prompt|skill> [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
+		`Usage: ${styleCommand("dotagents new [prompt|skill] [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("If kind is omitted in interactive mode, you'll choose prompt or skill.")}\n`,
 	);
 }
 
