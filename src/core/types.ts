@@ -10,6 +10,8 @@ export type DiscoveredAsset = {
 export type ScanReport = {
 	home: string;
 	scannedSources: string[];
+	discoveredPrompts: DiscoveredAsset[];
+	discoveredSkills: DiscoveredAsset[];
 	unsyncedPrompts: DiscoveredAsset[];
 	unsyncedSkills: DiscoveredAsset[];
 };

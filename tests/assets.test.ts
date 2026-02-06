@@ -53,6 +53,9 @@ describe("scanUnsyncedAssets", () => {
 			sources: [{ name: "codex", root: codex }],
 		});
 
+		expect(report.discoveredPrompts.map((item) => item.id)).toContain("tracked");
+		expect(report.discoveredPrompts.map((item) => item.id)).toContain("new-prompt");
+		expect(report.discoveredSkills.map((item) => item.id)).toContain("new-skill");
 		expect(report.unsyncedPrompts.map((item) => item.id)).toContain("new-prompt");
 		expect(report.unsyncedPrompts.map((item) => item.id)).not.toContain("tracked");
 		expect(report.unsyncedSkills.map((item) => item.id)).toContain("new-skill");

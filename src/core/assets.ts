@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { resolveHomeRepository, type ScanSource } from "./config.js";
 import type { DiscoveredAsset, ScanReport } from "./types.js";
 
@@ -16,6 +18,7 @@ const PROMPT_SOURCE_DIRS = [
 ] as const;
 
 const SKILL_SOURCE_DIRS = ["skills", ".agents/skills", ".claude/skills", ".codex/skills"] as const;
+const execFileAsync = promisify(execFile);
 
 export function slugifyName(input: string): string {
 	const normalized = input
@@ -114,19 +117,45 @@ export async function scanUnsyncedAssets(options: {
 		)
 	).flat();
 
-	const unsyncedPrompts = discovered.filter(
+	const discoveredPrompts = uniqueAssets(discovered.filter((asset) => asset.kind === "prompt"));
+	const discoveredSkills = uniqueAssets(discovered.filter((asset) => asset.kind === "skill"));
+
+	const unsyncedPrompts = discoveredPrompts.filter(
 		(asset) => asset.kind === "prompt" && !homePrompts.has(asset.id),
 	);
-	const unsyncedSkills = discovered.filter(
+	const unsyncedSkills = discoveredSkills.filter(
 		(asset) => asset.kind === "skill" && !homeSkills.has(asset.id),
 	);
 
 	return {
 		home: options.home,
 		scannedSources: options.sources.map((s) => s.root),
+		discoveredPrompts,
+		discoveredSkills,
 		unsyncedPrompts: uniqueAssets(unsyncedPrompts),
 		unsyncedSkills: uniqueAssets(unsyncedSkills),
 	};
+}
+
+export async function listGitTrackedFiles(repoRoot: string): Promise<Set<string>> {
+	if (!(await isDirectory(path.join(repoRoot, ".git")))) {
+		return new Set();
+	}
+
+	try {
+		const { stdout } = await execFileAsync("git", ["-C", repoRoot, "ls-files"], {
+			encoding: "utf8",
+		});
+		return new Set(
+			stdout
+				.split("\n")
+				.map((line) => line.trim())
+				.filter(Boolean)
+				.map((line) => line.replaceAll("\\", "/")),
+		);
+	} catch {
+		return new Set();
+	}
 }
 
 export async function importDiscoveredAssetToHome(options: {
