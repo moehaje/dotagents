@@ -1,7 +1,7 @@
 {
 	"name": "@artsnlabs/dotagents",
 	"version": "0.2.0",
-	"description": "CLI for managing agents assets from a canonical dotagents repo.",
+	"description": "Unified CLI for managing agent assets (prompts, skills, configs) from one home source across projects, local agents, and sync workflows.",
 	"license": "MIT",
 	"author": "Moe Haje <hello@moee.dev> (https://moee.dev)",
 	"repository": {

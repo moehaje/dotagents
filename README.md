@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/npm/l/%40artsnlabs%2Fdotagents)](LICENSE)
 [![CI](https://github.com/moehaje/dotagents/actions/workflows/ci.yml/badge.svg)](https://github.com/moehaje/dotagents/actions/workflows/ci.yml)
 
-`dotagents` is a CLI for managing agent prompts and skills from one canonical home repository.
+`dotagents` is a unified CLI for managing agent assets (prompts, skills, configs) from one home source across projects, local agents, and sync workflows.
 
 ## Features
 
