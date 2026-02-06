@@ -1,5 +1,5 @@
-import fs from "node:fs/promises";
 import type { Dirent } from "node:fs";
+import fs from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -20,9 +20,16 @@ export type DotagentsGlobalConfig = {
 	customSources: string[];
 };
 
+type BuiltInSourcePaths = {
+	home: string;
+	configHome: string;
+	codexHome: string;
+	claudeHome: string;
+	agentsHome: string;
+};
+
 export function getGlobalConfigPath(): string {
-	const xdg = process.env.XDG_CONFIG_HOME?.trim();
-	const base = xdg && xdg.length > 0 ? expandTilde(xdg) : path.join(homedir(), ".config");
+	const base = resolveConfigHome();
 	return path.join(base, "dotagents", "config.json");
 }
 
@@ -84,15 +91,15 @@ export async function resolveHomeRepository(explicitHome?: string): Promise<stri
 export async function defaultScanSources(extraSources: string[] = []): Promise<ScanSource[]> {
 	const stored = await loadGlobalConfig();
 	const defaults = buildDefaultConfig(path.join(homedir(), "dotagents"));
-	const codexHome = stored?.agents.codex ?? defaults.agents.codex;
-	const claudeHome = stored?.agents.claude ?? defaults.agents.claude;
-	const agentsHome = stored?.agents.agents ?? defaults.agents.agents;
+	const paths: BuiltInSourcePaths = {
+		home: homedir(),
+		configHome: resolveConfigHome(),
+		codexHome: stored?.agents.codex ?? defaults.agents.codex,
+		claudeHome: stored?.agents.claude ?? defaults.agents.claude,
+		agentsHome: stored?.agents.agents ?? defaults.agents.agents,
+	};
 
-	const sources: ScanSource[] = [
-		{ name: "codex", root: codexHome },
-		{ name: "claude", root: claudeHome },
-		{ name: "agents", root: agentsHome },
-	];
+	const sources: ScanSource[] = buildBuiltInScanSources(paths);
 
 	for (const custom of stored?.customSources ?? []) {
 		sources.push({ name: "custom", root: custom, explicit: true });
@@ -124,6 +131,52 @@ export function buildDefaultConfig(homeRepo: string): DotagentsGlobalConfig {
 	};
 }
 
+export function buildBuiltInScanSources(paths: BuiltInSourcePaths): ScanSource[] {
+	return [
+		{ name: "codex", root: paths.codexHome },
+		{ name: "claude", root: paths.claudeHome },
+		{ name: "agents", root: paths.agentsHome },
+		{ name: "amp", root: path.join(paths.configHome, "agents") },
+		{ name: "antigravity", root: path.join(paths.home, ".gemini", "antigravity") },
+		{ name: "augment", root: path.join(paths.home, ".augment") },
+		{ name: "openclaw", root: path.join(paths.home, ".openclaw") },
+		{ name: "clawdbot", root: path.join(paths.home, ".clawdbot") },
+		{ name: "moltbot", root: path.join(paths.home, ".moltbot") },
+		{ name: "cline", root: path.join(paths.home, ".cline") },
+		{ name: "codebuddy", root: path.join(paths.home, ".codebuddy") },
+		{ name: "command-code", root: path.join(paths.home, ".commandcode") },
+		{ name: "continue", root: path.join(paths.home, ".continue") },
+		{ name: "crush", root: path.join(paths.configHome, "crush") },
+		{ name: "cursor", root: path.join(paths.home, ".cursor") },
+		{ name: "droid", root: path.join(paths.home, ".factory") },
+		{ name: "gemini-cli", root: path.join(paths.home, ".gemini") },
+		{ name: "github-copilot", root: path.join(paths.home, ".copilot") },
+		{ name: "goose", root: path.join(paths.configHome, "goose") },
+		{ name: "junie", root: path.join(paths.home, ".junie") },
+		{ name: "iflow-cli", root: path.join(paths.home, ".iflow") },
+		{ name: "kilo", root: path.join(paths.home, ".kilocode") },
+		{ name: "kimi-cli", root: path.join(paths.configHome, "agents") },
+		{ name: "kiro-cli", root: path.join(paths.home, ".kiro") },
+		{ name: "kode", root: path.join(paths.home, ".kode") },
+		{ name: "mcpjam", root: path.join(paths.home, ".mcpjam") },
+		{ name: "mistral-vibe", root: path.join(paths.home, ".vibe") },
+		{ name: "mux", root: path.join(paths.home, ".mux") },
+		{ name: "opencode", root: path.join(paths.configHome, "opencode") },
+		{ name: "openhands", root: path.join(paths.home, ".openhands") },
+		{ name: "pi", root: path.join(paths.home, ".pi", "agent") },
+		{ name: "qoder", root: path.join(paths.home, ".qoder") },
+		{ name: "qwen-code", root: path.join(paths.home, ".qwen") },
+		{ name: "roo", root: path.join(paths.home, ".roo") },
+		{ name: "trae", root: path.join(paths.home, ".trae") },
+		{ name: "trae-cn", root: path.join(paths.home, ".trae-cn") },
+		{ name: "windsurf", root: path.join(paths.home, ".codeium", "windsurf") },
+		{ name: "zencoder", root: path.join(paths.home, ".zencoder") },
+		{ name: "neovate", root: path.join(paths.home, ".neovate") },
+		{ name: "pochi", root: path.join(paths.home, ".pochi") },
+		{ name: "adal", root: path.join(paths.home, ".adal") },
+	];
+}
+
 export function expandTilde(input: string): string {
 	const value = input.trim();
 	if (!value.startsWith("~")) {
@@ -147,6 +200,11 @@ function dedupeSources(sources: ScanSource[]): ScanSource[] {
 		deduped.push({ ...source, root: key });
 	}
 	return deduped;
+}
+
+function resolveConfigHome(): string {
+	const xdg = process.env.XDG_CONFIG_HOME?.trim();
+	return xdg && xdg.length > 0 ? expandTilde(xdg) : path.join(homedir(), ".config");
 }
 
 async function pathExists(targetPath: string): Promise<boolean> {
