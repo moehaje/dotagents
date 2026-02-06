@@ -148,7 +148,7 @@ jobs:
         run: |
           cat > homebrew-tap/Formula/dotagents.rb <<EOF
           class Dotagents < Formula
-            desc "CLI for managing agents assets from a canonical dotagents repo"
+            desc "Unified CLI for managing agent assets across projects and local agents"
             homepage "https://github.com/moehaje/dotagents#readme"
             url "${{ steps.metadata.outputs.tarball_url }}"
             sha256 "${{ steps.metadata.outputs.sha256 }}"
@@ -252,7 +252,7 @@ jobs:
         run: |
           cat > homebrew-tap/Formula/dotagents.rb <<EOF
           class Dotagents < Formula
-            desc "CLI for managing agents assets from a canonical dotagents repo"
+            desc "Unified CLI for managing agent assets across projects and local agents"
             homepage "https://github.com/moehaje/dotagents#readme"
             url "${{ steps.metadata.outputs.tarball_url }}"
             sha256 "${{ steps.metadata.outputs.sha256 }}"
