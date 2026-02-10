@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import * as p from "@clack/prompts";
@@ -9,7 +10,7 @@ import {
 	ensureHomeRepoStructure,
 	slugifyName,
 } from "../core/assets.js";
-import { loadGlobalConfig } from "../core/config.js";
+import { buildDefaultConfig, loadGlobalConfig } from "../core/config.js";
 import {
 	styleCommand,
 	styleError,
@@ -24,6 +25,9 @@ type CreateCommandOptions = {
 	force?: boolean;
 	contentFile?: string;
 	contentStdin?: boolean;
+	project?: boolean;
+	global?: boolean;
+	agents: string[];
 };
 
 type AssetKind = "prompt" | "skill";
@@ -33,6 +37,12 @@ type InstallTarget = {
 	label: string;
 	path: string;
 	hint?: string;
+};
+
+type CreateTarget = {
+	id: string;
+	label: string;
+	path: string;
 };
 
 export async function runCreateCommand(args: string[]): Promise<number> {
@@ -53,8 +63,22 @@ export async function runCreateCommand(args: string[]): Promise<number> {
 		);
 		return 2;
 	}
+	if (parsed.options.agents.length > 0) {
+		const invalidAgents = parsed.options.agents.filter(
+			(agent) => !["codex", "claude", "agents"].includes(agent),
+		);
+		if (invalidAgents.length > 0) {
+			process.stderr.write(
+				`${styleError(`Invalid agent target(s): ${invalidAgents.join(", ")}`)} ${styleHint(
+					"Use -a codex|claude|agents.",
+				)}\n`,
+			);
+			return 2;
+		}
+	}
 
-	const home = await ensureHomeRepoStructure(parsed.options.home);
+	const shouldWriteToHome = !hasExplicitTargetSelection(parsed.options);
+	const home = shouldWriteToHome ? await ensureHomeRepoStructure(parsed.options.home) : "";
 	if (kind === "prompt") {
 		return runCreatePrompt(home, parsed.name, parsed.options);
 	}
@@ -103,19 +127,6 @@ async function runCreatePrompt(
 		return 130;
 	}
 
-	const promptFile = path.join(home, "prompts", `${slug}.md`);
-	const exists = await existsPath(promptFile);
-	if (exists && !options.force) {
-		const confirm = await p.confirm({
-			message: `${promptFile} exists. Overwrite?`,
-			initialValue: false,
-		});
-		if (p.isCancel(confirm) || !confirm) {
-			p.cancel("Canceled.");
-			return 130;
-		}
-	}
-
 	const contentLines = [content];
 	if (promptArgs && promptArgs.length > 0 && !content.includes("$ARGUMENTS")) {
 		contentLines.push("", "$ARGUMENTS");
@@ -133,26 +144,44 @@ async function runCreatePrompt(
 		"",
 	].join("\n");
 
-	await fs.mkdir(path.dirname(promptFile), { recursive: true });
-	await fs.writeFile(promptFile, fileContents, "utf8");
-
-	const installResult = await maybeInstallCreatedAsset({
+	const targets = await resolveCreateTargets({
 		kind: "prompt",
 		assetId: slug,
 		home,
-		force: Boolean(options.force),
+		options,
 	});
-	if (installResult === "canceled") {
+	const writeResult = await writePromptToTargets(targets, fileContents, Boolean(options.force));
+	if (writeResult.canceled) {
 		p.cancel("Canceled.");
 		return 130;
 	}
+	if (writeResult.failed > 0 && writeResult.created === 0) {
+		return 1;
+	}
 
-	const summarySuffix =
-		installResult.installedCount > 0
-			? pc.dim(` (installed to ${installResult.installedCount} destination(s))`)
-			: "";
-	p.outro(pc.green(`Created ${promptFile}${summarySuffix}`));
-	return 0;
+	let installCount = 0;
+	if (!hasExplicitTargetSelection(options) && writeResult.created > 0) {
+		const installResult = await maybeInstallCreatedAsset({
+			kind: "prompt",
+			assetId: slug,
+			home,
+			force: Boolean(options.force),
+		});
+		if (installResult === "canceled") {
+			p.cancel("Canceled.");
+			return 130;
+		}
+		installCount = installResult.installedCount;
+	}
+
+	const summary = [
+		pc.green(`Created prompt in ${writeResult.created} destination(s)`),
+		installCount > 0 ? pc.dim(`installed to ${installCount} destination(s)`) : "",
+	]
+		.filter(Boolean)
+		.join(" ");
+	p.outro(summary);
+	return writeResult.failed > 0 ? 1 : 0;
 }
 
 async function runCreateSkill(
@@ -178,21 +207,6 @@ async function runCreateSkill(
 		return 130;
 	}
 
-	const skillDir = path.join(home, "skills", slug);
-	const skillFile = path.join(skillDir, "SKILL.md");
-
-	const exists = await existsPath(skillFile);
-	if (exists && !options.force) {
-		const confirm = await p.confirm({
-			message: `${skillFile} exists. Overwrite?`,
-			initialValue: false,
-		});
-		if (p.isCancel(confirm) || !confirm) {
-			p.cancel("Canceled.");
-			return 130;
-		}
-	}
-
 	const template = [
 		"---",
 		`name: ${slug}`,
@@ -205,26 +219,44 @@ async function runCreateSkill(
 		"",
 	].join("\n");
 
-	await fs.mkdir(skillDir, { recursive: true });
-	await fs.writeFile(skillFile, template, "utf8");
-
-	const installResult = await maybeInstallCreatedAsset({
+	const targets = await resolveCreateTargets({
 		kind: "skill",
 		assetId: slug,
 		home,
-		force: Boolean(options.force),
+		options,
 	});
-	if (installResult === "canceled") {
+	const writeResult = await writeSkillToTargets(targets, template, Boolean(options.force));
+	if (writeResult.canceled) {
 		p.cancel("Canceled.");
 		return 130;
 	}
+	if (writeResult.failed > 0 && writeResult.created === 0) {
+		return 1;
+	}
 
-	const summarySuffix =
-		installResult.installedCount > 0
-			? pc.dim(` (installed to ${installResult.installedCount} destination(s))`)
-			: "";
-	p.outro(pc.green(`Created ${skillFile}${summarySuffix}`));
-	return 0;
+	let installCount = 0;
+	if (!hasExplicitTargetSelection(options) && writeResult.created > 0) {
+		const installResult = await maybeInstallCreatedAsset({
+			kind: "skill",
+			assetId: slug,
+			home,
+			force: Boolean(options.force),
+		});
+		if (installResult === "canceled") {
+			p.cancel("Canceled.");
+			return 130;
+		}
+		installCount = installResult.installedCount;
+	}
+
+	const summary = [
+		pc.green(`Created skill in ${writeResult.created} destination(s)`),
+		installCount > 0 ? pc.dim(`installed to ${installCount} destination(s)`) : "",
+	]
+		.filter(Boolean)
+		.join(" ");
+	p.outro(summary);
+	return writeResult.failed > 0 ? 1 : 0;
 }
 
 async function maybeInstallCreatedAsset(options: {
@@ -364,6 +396,196 @@ function addInstallTarget(
 	targets.push({ ...target, path: normalized });
 }
 
+function hasExplicitTargetSelection(options: CreateCommandOptions): boolean {
+	return Boolean(options.project || options.global || options.agents.length > 0);
+}
+
+async function resolveCreateTargets(input: {
+	kind: AssetKind;
+	assetId: string;
+	home: string;
+	options: CreateCommandOptions;
+}): Promise<CreateTarget[]> {
+	const targets: CreateTarget[] = [];
+	const seen = new Set<string>();
+	const useExplicitTargets = hasExplicitTargetSelection(input.options);
+
+	if (!useExplicitTargets) {
+		const homePath =
+			input.kind === "prompt"
+				? path.join(input.home, "prompts", `${input.assetId}.md`)
+				: path.join(input.home, "skills", input.assetId, "SKILL.md");
+		addCreateTarget(targets, seen, {
+			id: "home",
+			label: "Home",
+			path: homePath,
+		});
+		return targets;
+	}
+
+	if (input.options.project) {
+		const projectPath =
+			input.kind === "prompt"
+				? path.join(process.cwd(), ".agents", "prompts", `${input.assetId}.md`)
+				: path.join(process.cwd(), ".agents", "skills", input.assetId, "SKILL.md");
+		addCreateTarget(targets, seen, {
+			id: "project",
+			label: "Project",
+			path: projectPath,
+		});
+	}
+
+	const globalRoots = await listGlobalAgentRoots();
+	if (input.options.global) {
+		for (const root of globalRoots) {
+			const targetPath =
+				input.kind === "prompt"
+					? path.join(root.root, "prompts", `${input.assetId}.md`)
+					: path.join(root.root, "skills", input.assetId, "SKILL.md");
+			addCreateTarget(targets, seen, {
+				id: `global-${root.id}`,
+				label: `Global: ${root.label}`,
+				path: targetPath,
+			});
+		}
+	}
+
+	for (const agent of input.options.agents) {
+		const matched = globalRoots.find((root) => root.id === agent);
+		if (!matched) {
+			continue;
+		}
+		const targetPath =
+			input.kind === "prompt"
+				? path.join(matched.root, "prompts", `${input.assetId}.md`)
+				: path.join(matched.root, "skills", input.assetId, "SKILL.md");
+		addCreateTarget(targets, seen, {
+			id: `agent-${matched.id}`,
+			label: `Agent: ${matched.label}`,
+			path: targetPath,
+		});
+	}
+
+	return targets;
+}
+
+function addCreateTarget(targets: CreateTarget[], seen: Set<string>, target: CreateTarget): void {
+	const normalized = path.resolve(target.path);
+	if (seen.has(normalized)) {
+		return;
+	}
+	seen.add(normalized);
+	targets.push({ ...target, path: normalized });
+}
+
+async function listGlobalAgentRoots(): Promise<Array<{ id: string; label: string; root: string }>> {
+	const stored = await loadGlobalConfig();
+	const defaults = buildDefaultConfig(path.join(homedir(), "dotagents"));
+	const codex = stored?.agents.codex ?? defaults.agents.codex;
+	const claude = stored?.agents.claude ?? defaults.agents.claude;
+	const agents = stored?.agents.agents ?? defaults.agents.agents;
+	const custom = stored?.customSources ?? [];
+	return [
+		{ id: "codex", label: "codex", root: codex },
+		{ id: "claude", label: "claude", root: claude },
+		{ id: "agents", label: "agents", root: agents },
+		...custom.map((root, index) => ({
+			id: `custom-${index + 1}`,
+			label: `custom ${index + 1}`,
+			root,
+		})),
+	];
+}
+
+async function writePromptToTargets(
+	targets: CreateTarget[],
+	contents: string,
+	force: boolean,
+): Promise<{ created: number; failed: number; canceled: boolean }> {
+	let created = 0;
+	let failed = 0;
+	for (const target of targets) {
+		const decision = await shouldWriteTarget(target.path, force);
+		if (decision === "canceled") {
+			return { created, failed, canceled: true };
+		}
+		if (!decision) {
+			process.stdout.write(
+				`${styleWarning(`Skipped ${target.label}:`)} ${styleHint("already exists")}\n`,
+			);
+			continue;
+		}
+		try {
+			await fs.mkdir(path.dirname(target.path), { recursive: true });
+			await fs.writeFile(target.path, contents, "utf8");
+			created += 1;
+			process.stdout.write(
+				`${styleSuccess("Created")} ${styleLabel(target.label)} ${styleHint(`(${target.path})`)}\n`,
+			);
+		} catch (error) {
+			failed += 1;
+			const message = error instanceof Error ? error.message : String(error);
+			process.stdout.write(`${styleError(`Failed ${target.label}:`)} ${styleHint(message)}\n`);
+		}
+	}
+	return { created, failed, canceled: false };
+}
+
+async function writeSkillToTargets(
+	targets: CreateTarget[],
+	contents: string,
+	force: boolean,
+): Promise<{ created: number; failed: number; canceled: boolean }> {
+	let created = 0;
+	let failed = 0;
+	for (const target of targets) {
+		const decision = await shouldWriteTarget(target.path, force);
+		if (decision === "canceled") {
+			return { created, failed, canceled: true };
+		}
+		if (!decision) {
+			process.stdout.write(
+				`${styleWarning(`Skipped ${target.label}:`)} ${styleHint("already exists")}\n`,
+			);
+			continue;
+		}
+		try {
+			await fs.mkdir(path.dirname(target.path), { recursive: true });
+			await fs.writeFile(target.path, contents, "utf8");
+			created += 1;
+			process.stdout.write(
+				`${styleSuccess("Created")} ${styleLabel(target.label)} ${styleHint(`(${target.path})`)}\n`,
+			);
+		} catch (error) {
+			failed += 1;
+			const message = error instanceof Error ? error.message : String(error);
+			process.stdout.write(`${styleError(`Failed ${target.label}:`)} ${styleHint(message)}\n`);
+		}
+	}
+	return { created, failed, canceled: false };
+}
+
+async function shouldWriteTarget(
+	targetPath: string,
+	force: boolean,
+): Promise<boolean | "canceled"> {
+	const exists = await existsPath(targetPath);
+	if (!exists || force) {
+		return true;
+	}
+	if (!process.stdout.isTTY || !process.stdin.isTTY) {
+		throw new Error(`Target already exists: ${targetPath}. Use --force to overwrite.`);
+	}
+	const confirm = await p.confirm({
+		message: `${targetPath} exists. Overwrite?`,
+		initialValue: false,
+	});
+	if (p.isCancel(confirm)) {
+		return "canceled";
+	}
+	return confirm;
+}
+
 async function askRequired(message: string): Promise<string | null> {
 	const value = await p.text({
 		message,
@@ -494,7 +716,7 @@ function parseCreateArgs(args: string[]): {
 	options: CreateCommandOptions;
 } {
 	const positionals: string[] = [];
-	const options: CreateCommandOptions = {};
+	const options: CreateCommandOptions = { agents: [] };
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -506,6 +728,27 @@ function parseCreateArgs(args: string[]): {
 		}
 		if (arg === "--force" || arg === "-f") {
 			options.force = true;
+			continue;
+		}
+		if (arg === "--project" || arg === "-p") {
+			options.project = true;
+			continue;
+		}
+		if (arg === "--global" || arg === "-g") {
+			options.global = true;
+			continue;
+		}
+		if (arg === "--agent" || arg === "-a") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --agent");
+			}
+			const parsedAgents = value
+				.split(",")
+				.map((item) => item.trim().toLowerCase())
+				.filter(Boolean);
+			options.agents = [...options.agents, ...parsedAgents];
+			index += 1;
 			continue;
 		}
 		if (arg === "--home") {
@@ -550,13 +793,16 @@ function parseCreateArgs(args: string[]): {
 
 function printCreateHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents create [prompt|skill] [name] [--home <path>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
+		`Usage: ${styleCommand("dotagents create [prompt|skill] [name] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("If kind is omitted in interactive mode, you'll choose prompt or skill.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("-p creates in project, -g creates in global agent homes, -a targets specific agents.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("After creation, interactive mode can install the asset to project and/or global agent paths.")}\n`,
