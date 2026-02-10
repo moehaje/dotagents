@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-02-10
+
+### Added
+
+- Add create target flags for project/global/agent destinations (`-p`, `-g`, `-a`) and agent-specific project-local targeting.
+- Add non-interactive create flags for prompt metadata and content input.
+- Add add-command agent targeting with `--agent/-a` for configured global homes.
+- Add scan sync automation flags (`--sync-all`, `--sync-select`) for non-interactive workflows.
+- Add `dotagents edit` command for editing prompts/skills across home, project, and global scopes with `-p/-g/-a` targeting.
+- Add `--file` support for skill-local edits and `--inline` terminal edit mode with atomic file writes.
+- Add editor resolution/runtime utilities with precedence for CLI override, config, env vars, git config, and PATH fallbacks.
+- Add focused tests for edit command flows, shared target resolution, and editor resolution.
+
+### Changed
+
+- Include current project path as a default scan source and deduplicate overlapping source roots.
+- Refactor create target resolution into shared core utilities reused by both `create` and `edit`.
+- Extend global config to persist optional editor command (`dotagents config --editor <cmd>`).
+- Standardize command help formatting for create/add/scan/edit/config with structured sections and examples.
+- Update CLI help and README command surface to include `dotagents edit` and scope-aware interactive selection behavior.
+
+### Fixed
+
+- Fix create targeting so `-p` combined with `-a` resolves to project-local agent directories.
 ## [0.3.1] - 2026-02-07
 
 ### Fixed
