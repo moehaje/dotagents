@@ -12,6 +12,7 @@ export type ScanSource = {
 export type DotagentsGlobalConfig = {
 	version: 1;
 	homeRepo: string;
+	editor?: string;
 	agents: {
 		codex: string;
 		claude: string;
@@ -42,9 +43,11 @@ export async function loadGlobalConfig(): Promise<DotagentsGlobalConfig | null> 
 			return null;
 		}
 		const defaults = buildDefaultConfig(path.join(homedir(), "dotagents"));
+		const parsedEditor = typeof parsed.editor === "string" ? parsed.editor.trim() : undefined;
 		return {
 			version: 1,
 			homeRepo: parsed.homeRepo ? expandTilde(parsed.homeRepo) : defaults.homeRepo,
+			editor: parsedEditor && parsedEditor.length > 0 ? parsedEditor : undefined,
 			agents: {
 				codex: parsed.agents?.codex ? expandTilde(parsed.agents.codex) : defaults.agents.codex,
 				claude: parsed.agents?.claude ? expandTilde(parsed.agents.claude) : defaults.agents.claude,

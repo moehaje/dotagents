@@ -14,6 +14,7 @@ import { styleCommand, styleHint, styleLabel, styleSuccess } from "../ui/brand.j
 
 type ConfigOptions = {
 	home?: string;
+	editor?: string;
 	codex?: string;
 	claude?: string;
 	agents?: string;
@@ -38,6 +39,7 @@ export async function runConfigCommand(args: string[]): Promise<number> {
 	config = config ?? buildDefaultConfig(await resolveHomeRepository());
 	if (
 		options.home ||
+		options.editor !== undefined ||
 		options.codex ||
 		options.claude ||
 		options.agents ||
@@ -47,6 +49,12 @@ export async function runConfigCommand(args: string[]): Promise<number> {
 		config = {
 			...config,
 			homeRepo: options.home ? expandTilde(options.home) : config.homeRepo,
+			editor:
+				options.editor !== undefined
+					? options.editor.trim()
+						? options.editor.trim()
+						: undefined
+					: config.editor,
 			agents: {
 				codex: options.codex ? expandTilde(options.codex) : config.agents.codex,
 				claude: options.claude ? expandTilde(options.claude) : config.agents.claude,
@@ -102,16 +110,21 @@ function parseConfigArgs(args: string[]): ConfigOptions {
 				options.clearSources = true;
 				break;
 			case "--home":
+			case "--editor":
 			case "--codex":
 			case "--claude":
 			case "--agents":
 			case "--source":
 				{
 					const value = args[index + 1];
-					if (!value || value.startsWith("-")) {
+					if (
+						value === undefined ||
+						((arg !== "--editor" || value !== "") && value.startsWith("-"))
+					) {
 						throw new Error(`Missing value for ${arg}`);
 					}
 					if (arg === "--home") options.home = value;
+					if (arg === "--editor") options.editor = value;
 					if (arg === "--codex") options.codex = value;
 					if (arg === "--claude") options.claude = value;
 					if (arg === "--agents") options.agents = value;
@@ -140,6 +153,7 @@ async function runInteractiveConfig(initial: DotagentsGlobalConfig): Promise<voi
 			message: "Select config to edit",
 			options: [
 				{ value: "home", label: `Home repo (${config.homeRepo})` },
+				{ value: "editor", label: `Editor command (${config.editor ?? "not set"})` },
 				{ value: "codex", label: `Codex path (${config.agents.codex})` },
 				{ value: "claude", label: `Claude path (${config.agents.claude})` },
 				{ value: "agents", label: `Generic .agents path (${config.agents.agents})` },
@@ -157,6 +171,12 @@ async function runInteractiveConfig(initial: DotagentsGlobalConfig): Promise<voi
 		switch (action) {
 			case "home":
 				config.homeRepo = await promptPath("Home repo path", config.homeRepo);
+				break;
+			case "editor":
+				config.editor = await promptOptional(
+					"Editor command (empty to clear; e.g. code --wait)",
+					config.editor,
+				);
 				break;
 			case "codex":
 				config.agents.codex = await promptPath("Codex path", config.agents.codex);
@@ -224,11 +244,26 @@ async function promptPath(message: string, initialValue: string): Promise<string
 	return expandTilde(input);
 }
 
+async function promptOptional(message: string, initialValue?: string): Promise<string | undefined> {
+	const input = await p.text({
+		message,
+		initialValue: initialValue ?? "",
+	});
+	if (p.isCancel(input)) {
+		throw new Error("Canceled config update.");
+	}
+	const value = input.trim();
+	return value.length > 0 ? value : undefined;
+}
+
 function printConfigHelp(): void {
 	process.stdout.write(`${styleLabel("Usage")}: ${styleCommand("dotagents config [options]")}\n`);
 	process.stdout.write(`${styleLabel("Options")}\n`);
 	process.stdout.write(
 		`  ${styleCommand("--home <path>")}      ${styleHint("Set home repo path")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--editor <cmd>")}    ${styleHint("Set editor command (empty string clears)")}\n`,
 	);
 	process.stdout.write(`  ${styleCommand("--codex <path>")}     ${styleHint("Set codex path")}\n`);
 	process.stdout.write(`  ${styleCommand("--claude <path>")}    ${styleHint("Set claude path")}\n`);

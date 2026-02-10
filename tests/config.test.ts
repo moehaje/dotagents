@@ -28,9 +28,11 @@ describe("global config persistence", () => {
 
 	it("saves and loads config", async () => {
 		const config = buildDefaultConfig("~/dotagents");
+		config.editor = "code --wait";
 		await saveGlobalConfig(config);
 		const loaded = await loadGlobalConfig();
 		expect(loaded?.homeRepo).toBe(config.homeRepo);
+		expect(loaded?.editor).toBe(config.editor);
 		expect(loaded?.agents.codex).toBe(config.agents.codex);
 		expect(getGlobalConfigPath().includes("dotagents/config.json")).toBe(true);
 	});
