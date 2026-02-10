@@ -63,8 +63,8 @@ dotagents skill sync --check
 ## Command Surface
 
 ```bash
-dotagents create [prompt|skill] [name] [--home <path>] [--force]
-dotagents add [prompt|skill] [name] [--to <path>] [--home <path>] [--force]
+dotagents create [prompt|skill] [name] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]
+dotagents add [prompt|skill] [name] [--to <path>] [--agent|-a <codex|claude|agents>] [--home <path>] [--force]
 dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force]
 dotagents config [--home <path> --codex <path> --claude <path> --agents <path>]
 dotagents skill <skills-cli-args...>
@@ -73,6 +73,7 @@ dotagents skill sync [--check] [--yes] [--home <path>]
 
 If `dotagents add` is run without kind or name in interactive mode, it prompts to select the asset kind and asset(s) from home.
 `dotagents new` is kept as a compatibility alias for `dotagents create`.
+Use create target flags to control where assets are written: `-p` (project), `-g` (global agent homes), `-a codex|claude|agents`.
 
 ## Home Repo Resolution
 

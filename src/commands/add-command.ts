@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import path from "node:path";
 import * as p from "@clack/prompts";
 import {
@@ -8,12 +9,14 @@ import {
 	listHomeSkillIds,
 	slugifyName,
 } from "../core/assets.js";
+import { buildDefaultConfig, loadGlobalConfig } from "../core/config.js";
 import { styleCommand, styleError, styleHint, styleSuccess } from "../ui/brand.js";
 
 type AddOptions = {
 	force?: boolean;
 	home?: string;
 	to?: string;
+	agents: string[];
 };
 
 export async function runAddCommand(args: string[]): Promise<number> {
@@ -22,6 +25,22 @@ export async function runAddCommand(args: string[]): Promise<number> {
 		printAddHelp();
 		return 0;
 	}
+	if (parsed.options.to && parsed.options.agents.length > 0) {
+		process.stderr.write(
+			`${styleError("Cannot combine --to with --agent.")} ${styleHint("Use one targeting mode.")}\n`,
+		);
+		return 2;
+	}
+	const normalizedAgents = normalizeAgents(parsed.options.agents);
+	if (normalizedAgents.invalid.length > 0) {
+		process.stderr.write(
+			`${styleError(`Invalid agent target(s): ${normalizedAgents.invalid.join(", ")}`)} ${styleHint(
+				"Use codex, claude, or agents.",
+			)}\n`,
+		);
+		return 2;
+	}
+	parsed.options.agents = normalizedAgents.valid;
 
 	const home = await ensureHomeRepoStructure(parsed.options.home);
 	const kind = parsed.kind ?? (await resolveInteractiveKind());
@@ -73,6 +92,34 @@ async function addSingleAsset(
 	name: string,
 	options: AddOptions,
 ): Promise<void> {
+	if (options.agents.length > 0) {
+		const agentTargets = await resolveAgentTargets(kind, name, options.agents);
+		for (const target of agentTargets) {
+			if (kind === "prompt") {
+				await copyPromptFromHome({
+					home,
+					name,
+					targetFile: target.path,
+					force: options.force,
+				});
+				process.stdout.write(
+					`${styleSuccess("Added prompt to")} ${styleCommand(target.id)}: ${styleCommand(target.path)}\n`,
+				);
+				continue;
+			}
+			await copySkillFromHome({
+				home,
+				name,
+				targetDir: target.path,
+				force: options.force,
+			});
+			process.stdout.write(
+				`${styleSuccess("Added skill to")} ${styleCommand(target.id)}: ${styleCommand(target.path)}\n`,
+			);
+		}
+		return;
+	}
+
 	if (kind === "prompt") {
 		const targetFile = options.to
 			? path.resolve(options.to)
@@ -152,6 +199,55 @@ async function selectAssetsFromHome(
 	return selected;
 }
 
+async function resolveAgentTargets(
+	kind: "prompt" | "skill",
+	name: string,
+	agentIds: string[],
+): Promise<Array<{ id: string; path: string }>> {
+	const stored = await loadGlobalConfig();
+	const defaults = buildDefaultConfig(path.join(homedir(), "dotagents"));
+	const roots = {
+		codex: stored?.agents.codex ?? defaults.agents.codex,
+		claude: stored?.agents.claude ?? defaults.agents.claude,
+		agents: stored?.agents.agents ?? defaults.agents.agents,
+	};
+	const targets: Array<{ id: string; path: string }> = [];
+	for (const agentId of agentIds) {
+		const root = roots[agentId as keyof typeof roots];
+		if (!root) {
+			continue;
+		}
+		const targetPath =
+			kind === "prompt"
+				? path.join(root, "prompts", `${name}.md`)
+				: path.join(root, "skills", name);
+		targets.push({ id: agentId, path: path.resolve(targetPath) });
+	}
+	return targets;
+}
+
+function normalizeAgents(agentInputs: string[]): { valid: string[]; invalid: string[] } {
+	const validSet = new Set<string>();
+	const invalidSet = new Set<string>();
+	for (const item of agentInputs) {
+		for (const part of item.split(",")) {
+			const value = part.trim().toLowerCase();
+			if (!value) {
+				continue;
+			}
+			if (value === "codex" || value === "claude" || value === "agents") {
+				validSet.add(value);
+				continue;
+			}
+			invalidSet.add(value);
+		}
+	}
+	return {
+		valid: [...validSet],
+		invalid: [...invalidSet],
+	};
+}
+
 function parseAddArgs(args: string[]): {
 	kind?: string;
 	name?: string;
@@ -159,7 +255,7 @@ function parseAddArgs(args: string[]): {
 	help?: boolean;
 } {
 	const positionals: string[] = [];
-	const options: AddOptions = {};
+	const options: AddOptions = { agents: [] };
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -191,6 +287,15 @@ function parseAddArgs(args: string[]): {
 			index += 1;
 			continue;
 		}
+		if (arg === "--agent" || arg === "-a") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --agent");
+			}
+			options.agents.push(value);
+			index += 1;
+			continue;
+		}
 		positionals.push(arg);
 	}
 
@@ -211,12 +316,15 @@ function parseAddArgs(args: string[]): {
 
 function printAddHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--home <path>] [--force]")}\n`,
+		`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--agent|-a <codex|claude|agents>] [--home <path>] [--force]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Copy a prompt or skill from your home repo into the current project.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("If <name> is omitted in interactive mode, you'll choose from available home assets.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("Use --agent/-a to target configured global agent homes (repeatable or comma-separated).")}\n`,
 	);
 }
