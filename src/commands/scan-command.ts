@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { homedir } from "node:os";
+import path from "node:path";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import {
@@ -10,7 +11,7 @@ import {
 	listHomeSkillIds,
 	scanUnsyncedAssets,
 } from "../core/assets.js";
-import { defaultScanSources } from "../core/config.js";
+import { defaultScanSources, type ScanSource } from "../core/config.js";
 import type { AssetKind, DiscoveredAsset } from "../core/types.js";
 import { styleCommand, styleHint, styleLabel } from "../ui/brand.js";
 
@@ -40,7 +41,8 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	}
 
 	const home = await ensureHomeRepoStructure(options.home);
-	const sources = await defaultScanSources(options.sources);
+	const configuredSources = await defaultScanSources(options.sources);
+	const sources = withProjectSource(configuredSources);
 	const sourceRoots = sources.map((source) => source.root);
 	const activeSourceRoots = await listExistingDirectories(sourceRoots);
 	const report = await scanUnsyncedAssets({
@@ -299,6 +301,9 @@ function printScanHelp(): void {
 	process.stdout.write(
 		`  ${styleHint("--sources-full prints all configured source paths instead of summary.")}\n`,
 	);
+	process.stdout.write(
+		`  ${styleHint("Current project path is always included as a scan source.")}\n`,
+	);
 }
 
 function formatSourcesSummary(
@@ -344,4 +349,27 @@ function shortenPath(targetPath: string): string {
 		return targetPath;
 	}
 	return targetPath.replace(homePath, "~");
+}
+
+function withProjectSource(sources: ScanSource[]): ScanSource[] {
+	const projectSource: ScanSource = {
+		name: "project",
+		root: process.cwd(),
+		explicit: false,
+	};
+	return dedupeSourcesByRoot([...sources, projectSource]);
+}
+
+function dedupeSourcesByRoot(sources: ScanSource[]): ScanSource[] {
+	const seen = new Set<string>();
+	const deduped: ScanSource[] = [];
+	for (const source of sources) {
+		const resolvedRoot = path.resolve(source.root);
+		if (seen.has(resolvedRoot)) {
+			continue;
+		}
+		seen.add(resolvedRoot);
+		deduped.push({ ...source, root: resolvedRoot });
+	}
+	return deduped;
 }
