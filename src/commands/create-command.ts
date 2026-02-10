@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import { homedir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import * as p from "@clack/prompts";
@@ -10,7 +9,8 @@ import {
 	ensureHomeRepoStructure,
 	slugifyName,
 } from "../core/assets.js";
-import { buildDefaultConfig, loadGlobalConfig } from "../core/config.js";
+import { loadGlobalConfig } from "../core/config.js";
+import { hasExplicitTargetSelection, resolveCreateEditTargets } from "../core/target-resolution.js";
 import {
 	styleCommand,
 	styleError,
@@ -412,137 +412,23 @@ function addInstallTarget(
 	targets.push({ ...target, path: normalized });
 }
 
-function hasExplicitTargetSelection(options: CreateCommandOptions): boolean {
-	return Boolean(options.project || options.global || options.agents.length > 0);
-}
-
 async function resolveCreateTargets(input: {
 	kind: AssetKind;
 	assetId: string;
 	home: string;
 	options: CreateCommandOptions;
 }): Promise<CreateTarget[]> {
-	const targets: CreateTarget[] = [];
-	const seen = new Set<string>();
-	const useExplicitTargets = hasExplicitTargetSelection(input.options);
-	const selectedAgents = [...new Set(input.options.agents)];
-
-	if (!useExplicitTargets) {
-		const homePath =
-			input.kind === "prompt"
-				? path.join(input.home, "prompts", `${input.assetId}.md`)
-				: path.join(input.home, "skills", input.assetId, "SKILL.md");
-		addCreateTarget(targets, seen, {
-			id: "home",
-			label: "Home",
-			path: homePath,
-		});
-		return targets;
-	}
-
-	if (input.options.project) {
-		if (selectedAgents.length > 0) {
-			for (const agentId of selectedAgents) {
-				const projectRoot = projectAgentRoot(agentId);
-				const projectPath =
-					input.kind === "prompt"
-						? path.join(projectRoot, "prompts", `${input.assetId}.md`)
-						: path.join(projectRoot, "skills", input.assetId, "SKILL.md");
-				addCreateTarget(targets, seen, {
-					id: `project-${agentId}`,
-					label: `Project: ${agentId}`,
-					path: projectPath,
-				});
-			}
-		} else {
-			const projectPath =
-				input.kind === "prompt"
-					? path.join(process.cwd(), ".agents", "prompts", `${input.assetId}.md`)
-					: path.join(process.cwd(), ".agents", "skills", input.assetId, "SKILL.md");
-			addCreateTarget(targets, seen, {
-				id: "project",
-				label: "Project",
-				path: projectPath,
-			});
-		}
-	}
-
-	const globalRoots = await listGlobalAgentRoots();
-	if (input.options.global) {
-		const roots =
-			selectedAgents.length > 0
-				? globalRoots.filter((root) => selectedAgents.includes(root.id))
-				: globalRoots;
-		for (const root of roots) {
-			const targetPath =
-				input.kind === "prompt"
-					? path.join(root.root, "prompts", `${input.assetId}.md`)
-					: path.join(root.root, "skills", input.assetId, "SKILL.md");
-			addCreateTarget(targets, seen, {
-				id: `global-${root.id}`,
-				label: `Global: ${root.label}`,
-				path: targetPath,
-			});
-		}
-	}
-
-	if (!input.options.project && !input.options.global && selectedAgents.length > 0) {
-		for (const agent of selectedAgents) {
-			const matched = globalRoots.find((root) => root.id === agent);
-			if (!matched) {
-				continue;
-			}
-			const targetPath =
-				input.kind === "prompt"
-					? path.join(matched.root, "prompts", `${input.assetId}.md`)
-					: path.join(matched.root, "skills", input.assetId, "SKILL.md");
-			addCreateTarget(targets, seen, {
-				id: `agent-${matched.id}`,
-				label: `Agent: ${matched.label}`,
-				path: targetPath,
-			});
-		}
-	}
-
+	const targets = await resolveCreateEditTargets({
+		kind: input.kind,
+		assetId: input.assetId,
+		home: input.home,
+		options: {
+			project: input.options.project,
+			global: input.options.global,
+			agents: input.options.agents,
+		},
+	});
 	return targets;
-}
-
-function addCreateTarget(targets: CreateTarget[], seen: Set<string>, target: CreateTarget): void {
-	const normalized = path.resolve(target.path);
-	if (seen.has(normalized)) {
-		return;
-	}
-	seen.add(normalized);
-	targets.push({ ...target, path: normalized });
-}
-
-async function listGlobalAgentRoots(): Promise<Array<{ id: string; label: string; root: string }>> {
-	const stored = await loadGlobalConfig();
-	const defaults = buildDefaultConfig(path.join(homedir(), "dotagents"));
-	const codex = stored?.agents.codex ?? defaults.agents.codex;
-	const claude = stored?.agents.claude ?? defaults.agents.claude;
-	const agents = stored?.agents.agents ?? defaults.agents.agents;
-	const custom = stored?.customSources ?? [];
-	return [
-		{ id: "codex", label: "codex", root: codex },
-		{ id: "claude", label: "claude", root: claude },
-		{ id: "agents", label: "agents", root: agents },
-		...custom.map((root, index) => ({
-			id: `custom-${index + 1}`,
-			label: `custom ${index + 1}`,
-			root,
-		})),
-	];
-}
-
-function projectAgentRoot(agentId: string): string {
-	if (agentId === "codex") {
-		return path.join(process.cwd(), ".codex");
-	}
-	if (agentId === "claude") {
-		return path.join(process.cwd(), ".claude");
-	}
-	return path.join(process.cwd(), ".agents");
 }
 
 async function writePromptToTargets(
