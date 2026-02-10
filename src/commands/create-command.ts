@@ -21,10 +21,16 @@ import {
 } from "../ui/brand.js";
 
 type CreateCommandOptions = {
+	kind?: "prompt" | "skill";
+	name?: string;
 	home?: string;
 	force?: boolean;
 	contentFile?: string;
 	contentStdin?: boolean;
+	title?: string;
+	description?: string;
+	args?: string;
+	content?: string;
 	project?: boolean;
 	global?: boolean;
 	agents: string[];
@@ -52,7 +58,7 @@ export async function runCreateCommand(args: string[]): Promise<number> {
 		return 0;
 	}
 
-	const kind = parsed.kind ?? (await resolveInteractiveKind());
+	const kind = parsed.kind ?? parsed.options.kind ?? (await resolveInteractiveKind());
 	if (!kind) {
 		p.cancel("Canceled.");
 		return 130;
@@ -80,9 +86,9 @@ export async function runCreateCommand(args: string[]): Promise<number> {
 	const shouldWriteToHome = !hasExplicitTargetSelection(parsed.options);
 	const home = shouldWriteToHome ? await ensureHomeRepoStructure(parsed.options.home) : "";
 	if (kind === "prompt") {
-		return runCreatePrompt(home, parsed.name, parsed.options);
+		return runCreatePrompt(home, parsed.name ?? parsed.options.name, parsed.options);
 	}
-	return runCreateSkill(home, parsed.name, parsed.options);
+	return runCreateSkill(home, parsed.name ?? parsed.options.name, parsed.options);
 }
 
 async function runCreatePrompt(
@@ -103,19 +109,26 @@ async function runCreatePrompt(
 		return 2;
 	}
 
-	const title = await askWithDefault("Prompt title", toTitleCase(slug));
+	const title =
+		options.title && options.title.trim().length > 0
+			? options.title.trim()
+			: await askWithDefault("Prompt title", toTitleCase(slug));
 	if (!title) {
 		p.cancel("Canceled.");
 		return 130;
 	}
 
-	const description = await askRequired("Description");
+	const description =
+		options.description && options.description.trim().length > 0
+			? options.description.trim()
+			: await askRequired("Description");
 	if (!description) {
 		p.cancel("Canceled.");
 		return 130;
 	}
 
-	const promptArgs = await askWithDefault("Args (optional)", "");
+	const promptArgs =
+		options.args !== undefined ? options.args.trim() : await askWithDefault("Args (optional)", "");
 	if (promptArgs === null) {
 		p.cancel("Canceled.");
 		return 130;
@@ -201,7 +214,10 @@ async function runCreateSkill(
 		return 2;
 	}
 
-	const description = await askRequired("Description");
+	const description =
+		options.description && options.description.trim().length > 0
+			? options.description.trim()
+			: await askRequired("Description");
 	if (!description) {
 		p.cancel("Canceled.");
 		return 130;
@@ -646,6 +662,11 @@ async function askWithDefault(message: string, defaultValue: string): Promise<st
 }
 
 async function resolvePromptContent(options: CreateCommandOptions): Promise<string | null> {
+	if (options.content !== undefined) {
+		const content = options.content.trimEnd();
+		return content.length > 0 ? content : null;
+	}
+
 	if (options.contentFile) {
 		const raw = await fs.readFile(path.resolve(options.contentFile), "utf8");
 		const content = raw.trimEnd();
@@ -762,6 +783,28 @@ function parseCreateArgs(args: string[]): {
 			options.force = true;
 			continue;
 		}
+		if (arg === "--kind") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --kind");
+			}
+			const normalized = value.trim().toLowerCase();
+			if (normalized !== "prompt" && normalized !== "skill") {
+				throw new Error("Invalid value for --kind. Use prompt or skill.");
+			}
+			options.kind = normalized;
+			index += 1;
+			continue;
+		}
+		if (arg === "--name") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --name");
+			}
+			options.name = value;
+			index += 1;
+			continue;
+		}
 		if (arg === "--project" || arg === "-p") {
 			options.project = true;
 			continue;
@@ -805,27 +848,63 @@ function parseCreateArgs(args: string[]): {
 			options.contentStdin = true;
 			continue;
 		}
+		if (arg === "--title") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --title");
+			}
+			options.title = value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--description") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --description");
+			}
+			options.description = value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--args") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --args");
+			}
+			options.args = value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--content") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --content");
+			}
+			options.content = value;
+			index += 1;
+			continue;
+		}
 		positionals.push(arg);
 	}
 
 	const first = positionals[0];
 	if (first === "prompt" || first === "skill") {
 		return {
-			kind: first,
-			name: positionals[1],
+			kind: options.kind ?? first,
+			name: options.name ?? positionals[1],
 			options,
 		};
 	}
 	return {
-		kind: undefined,
-		name: first,
+		kind: options.kind,
+		name: options.name ?? first,
 		options,
 	};
 }
 
 function printCreateHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents create [prompt|skill] [name] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force] [--content-file <path>] [--content-stdin]")}\n`,
+		`Usage: ${styleCommand("dotagents create [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--title <title>] [--description <text>] [--args <text>] [--content <text>|--content-file <path>|--content-stdin] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`,
