@@ -5,6 +5,8 @@ import {
 	ensureHomeRepoStructure,
 	listHomePromptIds,
 	listHomeSkillIds,
+	listPromptIdsFromRoot,
+	listSkillIdsFromRoot,
 	slugifyName,
 } from "../core/assets.js";
 import { loadGlobalConfig } from "../core/config.js";
@@ -12,6 +14,7 @@ import { openInEditor, resolveEditorCommand, runInlineEdit } from "../core/edito
 import {
 	hasExplicitTargetSelection,
 	resolveCreateEditTargets,
+	resolveTargetScopeRoots,
 	validateSkillFileHelperPath,
 } from "../core/target-resolution.js";
 import {
@@ -270,26 +273,74 @@ async function resolveInteractiveName(
 		return null;
 	}
 
-	const hasExplicitScope = hasExplicitTargetSelection({
+	const scopeOptions = {
 		project: options.project,
 		global: options.global,
 		agents: options.agents,
-	});
-	if (hasExplicitScope) {
-		return await askRequired("Asset name");
+	};
+	const hasExplicitScope = hasExplicitTargetSelection(scopeOptions);
+	if (!hasExplicitScope) {
+		const ids =
+			kind === "prompt"
+				? Array.from(await listHomePromptIds(home)).sort((left, right) => left.localeCompare(right))
+				: Array.from(await listHomeSkillIds(home)).sort((left, right) => left.localeCompare(right));
+		if (ids.length === 0) {
+			process.stdout.write(`${styleHint(`No ${kind}s found in ${home}.`)}\n`);
+			return null;
+		}
+		const selected = await p.select({
+			message: `Select ${kind} to edit`,
+			options: ids.map((id) => ({ value: id, label: id })),
+		});
+		if (p.isCancel(selected)) {
+			return null;
+		}
+		return selected;
 	}
 
-	const ids =
-		kind === "prompt"
-			? Array.from(await listHomePromptIds(home)).sort((left, right) => left.localeCompare(right))
-			: Array.from(await listHomeSkillIds(home)).sort((left, right) => left.localeCompare(right));
-	if (ids.length === 0) {
-		process.stdout.write(`${styleHint(`No ${kind}s found in ${home}.`)}\n`);
+	const scopeRoots = await resolveTargetScopeRoots({
+		home,
+		options: scopeOptions,
+	});
+	const scopedEntries = (
+		await Promise.all(
+			scopeRoots.map(async (scopeRoot) => {
+				const ids =
+					kind === "prompt"
+						? Array.from(await listPromptIdsFromRoot(scopeRoot.root))
+						: Array.from(await listSkillIdsFromRoot(scopeRoot.root));
+				return ids.map((id) => ({
+					id,
+					scopeLabel: scopeRoot.label,
+					scopeRoot: scopeRoot.root,
+				}));
+			}),
+		)
+	).flat();
+	const dedupedById = new Map<string, { id: string; scopes: string[] }>();
+	for (const entry of scopedEntries) {
+		const existing = dedupedById.get(entry.id);
+		if (existing) {
+			existing.scopes.push(entry.scopeLabel);
+			continue;
+		}
+		dedupedById.set(entry.id, {
+			id: entry.id,
+			scopes: [entry.scopeLabel],
+		});
+	}
+	const choices = [...dedupedById.values()].sort((left, right) => left.id.localeCompare(right.id));
+	if (choices.length === 0) {
+		process.stdout.write(`${styleHint(`No ${kind}s found in selected scope.`)}\n`);
 		return null;
 	}
 	const selected = await p.select({
 		message: `Select ${kind} to edit`,
-		options: ids.map((id) => ({ value: id, label: id })),
+		options: choices.map((choice) => ({
+			value: choice.id,
+			label: choice.id,
+			hint: choice.scopes.join(", "),
+		})),
 	});
 	if (p.isCancel(selected)) {
 		return null;
@@ -313,19 +364,6 @@ async function resolveInteractiveKind(): Promise<"prompt" | "skill" | null> {
 		return null;
 	}
 	return selected;
-}
-
-async function askRequired(message: string): Promise<string | null> {
-	const value = await p.text({
-		message,
-		validate(input) {
-			return input.trim().length > 0 ? undefined : "This field is required.";
-		},
-	});
-	if (p.isCancel(value)) {
-		return null;
-	}
-	return value.trim();
 }
 
 function normalizeAgents(agentInputs: string[]): { valid: string[]; invalid: string[] } {
@@ -460,6 +498,9 @@ function printEditHelp(): void {
 	);
 	process.stdout.write(
 		`  ${styleHint("Defaults to home scope when no target flags are provided.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("If name is omitted in interactive mode, choose from assets discovered in the selected scope.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Skill edits default to SKILL.md; use --file to edit another skill-local file.")}\n`,

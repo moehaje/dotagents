@@ -53,7 +53,15 @@ export function skillDirFromName(home: string, inputName: string): string {
 }
 
 export async function listHomePromptIds(home: string): Promise<Set<string>> {
-	const promptsDir = path.join(home, "prompts");
+	return await listPromptIdsFromRoot(home);
+}
+
+export async function listHomeSkillIds(home: string): Promise<Set<string>> {
+	return await listSkillIdsFromRoot(home);
+}
+
+export async function listPromptIdsFromRoot(root: string): Promise<Set<string>> {
+	const promptsDir = path.join(root, "prompts");
 	const files = await listMarkdownFiles(promptsDir);
 	const ids = new Set<string>();
 	for (const file of files) {
@@ -63,8 +71,8 @@ export async function listHomePromptIds(home: string): Promise<Set<string>> {
 	return ids;
 }
 
-export async function listHomeSkillIds(home: string): Promise<Set<string>> {
-	const skillsDir = path.join(home, "skills");
+export async function listSkillIdsFromRoot(root: string): Promise<Set<string>> {
+	const skillsDir = path.join(root, "skills");
 	const directories = await discoverSkillDirectories(skillsDir);
 	const ids = new Set<string>();
 	for (const dir of directories) {

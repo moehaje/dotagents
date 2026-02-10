@@ -2,6 +2,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	resolveCreateEditTargetsWithRoots,
+	resolveTargetScopeRootsWithRoots,
 	validateSkillFileHelperPath,
 } from "../src/core/target-resolution.js";
 
@@ -96,5 +97,50 @@ describe("validateSkillFileHelperPath", () => {
 			valid: false,
 			reason: "Skill file path cannot include '..' traversal.",
 		});
+	});
+});
+
+describe("resolveTargetScopeRootsWithRoots", () => {
+	it("returns home root by default", () => {
+		const roots = resolveTargetScopeRootsWithRoots({
+			home: "/tmp/home",
+			options: {},
+			globalRoots: [],
+			cwd: "/repo",
+		});
+		expect(roots).toEqual([
+			{
+				id: "home",
+				label: "Home",
+				root: path.resolve("/tmp/home"),
+			},
+		]);
+	});
+
+	it("returns project root for -p and agent-filtered project roots for -p -a", () => {
+		const projectOnly = resolveTargetScopeRootsWithRoots({
+			home: "/tmp/home",
+			options: { project: true },
+			globalRoots: [],
+			cwd: "/repo",
+		});
+		expect(projectOnly).toEqual([
+			{
+				id: "project",
+				label: "Project",
+				root: path.resolve("/repo/.agents"),
+			},
+		]);
+
+		const projectAgents = resolveTargetScopeRootsWithRoots({
+			home: "/tmp/home",
+			options: { project: true, agents: ["codex", "claude"] },
+			globalRoots: [],
+			cwd: "/repo",
+		});
+		expect(projectAgents.map((item) => item.root)).toEqual([
+			path.resolve("/repo/.codex"),
+			path.resolve("/repo/.claude"),
+		]);
 	});
 });

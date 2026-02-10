@@ -22,6 +22,12 @@ export type GlobalAgentRoot = {
 	root: string;
 };
 
+export type ResolvedTargetScopeRoot = {
+	id: string;
+	label: string;
+	root: string;
+};
+
 export type SkillFilePathValidation =
 	| { valid: true; normalizedPath: string }
 	| { valid: false; reason: string };
@@ -70,57 +76,67 @@ export async function resolveCreateEditTargets(input: {
 	});
 }
 
-export function resolveCreateEditTargetsWithRoots(input: {
-	kind: AssetKind;
-	assetId: string;
+export async function resolveTargetScopeRoots(input: {
+	home: string;
+	options: TargetSelectionOptions;
+	cwd?: string;
+}): Promise<ResolvedTargetScopeRoot[]> {
+	const globalRoots = await listGlobalAgentRoots();
+	return resolveTargetScopeRootsWithRoots({
+		...input,
+		globalRoots,
+	});
+}
+
+export function resolveTargetScopeRootsWithRoots(input: {
 	home: string;
 	options: TargetSelectionOptions;
 	globalRoots: GlobalAgentRoot[];
 	cwd?: string;
-}): ResolvedCreateEditTarget[] {
-	const targets: ResolvedCreateEditTarget[] = [];
+}): ResolvedTargetScopeRoot[] {
+	const roots: ResolvedTargetScopeRoot[] = [];
 	const seen = new Set<string>();
 	const useExplicitTargets = hasExplicitTargetSelection(input.options);
 	const selectedAgents = [...new Set(input.options.agents ?? [])];
 	const cwd = input.cwd ?? process.cwd();
 
 	if (!useExplicitTargets) {
-		addTarget(targets, seen, {
+		addScopeRoot(roots, seen, {
 			id: "home",
 			label: "Home",
-			path: buildAssetPath(input.kind, path.join(input.home), input.assetId),
+			root: input.home,
 		});
-		return targets;
+		return roots;
 	}
 
 	if (input.options.project) {
 		if (selectedAgents.length > 0) {
 			for (const agentId of selectedAgents) {
-				addTarget(targets, seen, {
+				addScopeRoot(roots, seen, {
 					id: `project-${agentId}`,
 					label: `Project: ${agentId}`,
-					path: buildAssetPath(input.kind, projectAgentRoot(agentId, cwd), input.assetId),
+					root: projectAgentRoot(agentId, cwd),
 				});
 			}
 		} else {
-			addTarget(targets, seen, {
+			addScopeRoot(roots, seen, {
 				id: "project",
 				label: "Project",
-				path: buildAssetPath(input.kind, path.join(cwd, ".agents"), input.assetId),
+				root: path.join(cwd, ".agents"),
 			});
 		}
 	}
 
 	if (input.options.global) {
-		const roots =
+		const selectedRoots =
 			selectedAgents.length > 0
 				? input.globalRoots.filter((root) => selectedAgents.includes(root.id))
 				: input.globalRoots;
-		for (const root of roots) {
-			addTarget(targets, seen, {
+		for (const root of selectedRoots) {
+			addScopeRoot(roots, seen, {
 				id: `global-${root.id}`,
 				label: `Global: ${root.label}`,
-				path: buildAssetPath(input.kind, root.root, input.assetId),
+				root: root.root,
 			});
 		}
 	}
@@ -131,12 +147,39 @@ export function resolveCreateEditTargetsWithRoots(input: {
 			if (!matched) {
 				continue;
 			}
-			addTarget(targets, seen, {
+			addScopeRoot(roots, seen, {
 				id: `agent-${matched.id}`,
 				label: `Agent: ${matched.label}`,
-				path: buildAssetPath(input.kind, matched.root, input.assetId),
+				root: matched.root,
 			});
 		}
+	}
+
+	return roots;
+}
+
+export function resolveCreateEditTargetsWithRoots(input: {
+	kind: AssetKind;
+	assetId: string;
+	home: string;
+	options: TargetSelectionOptions;
+	globalRoots: GlobalAgentRoot[];
+	cwd?: string;
+}): ResolvedCreateEditTarget[] {
+	const targets: ResolvedCreateEditTarget[] = [];
+	const seen = new Set<string>();
+	const roots = resolveTargetScopeRootsWithRoots({
+		home: input.home,
+		options: input.options,
+		globalRoots: input.globalRoots,
+		cwd: input.cwd,
+	});
+	for (const root of roots) {
+		addTarget(targets, seen, {
+			id: root.id,
+			label: root.label,
+			path: buildAssetPath(input.kind, root.root, input.assetId),
+		});
 	}
 
 	return targets;
@@ -187,6 +230,19 @@ function addTarget(
 	}
 	seen.add(normalized);
 	targets.push({ ...target, path: normalized });
+}
+
+function addScopeRoot(
+	roots: ResolvedTargetScopeRoot[],
+	seen: Set<string>,
+	root: ResolvedTargetScopeRoot,
+): void {
+	const normalized = path.resolve(root.root);
+	if (seen.has(normalized)) {
+		return;
+	}
+	seen.add(normalized);
+	roots.push({ ...root, root: normalized });
 }
 
 function isAbsolutePath(input: string): boolean {

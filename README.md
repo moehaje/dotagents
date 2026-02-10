@@ -79,6 +79,7 @@ Use create target flags to control where assets are written: `-p` (project), `-g
 Combine `-p` and `-a` to target agent-local project directories (for example `./.codex` or `./.claude`).
 `dotagents edit` uses the same scope flags and defaults to home scope when no target flags are provided.
 `dotagents edit skill` defaults to `SKILL.md`; pass `--file <relative/path>` to edit another file in the skill directory.
+If `dotagents edit` runs without `<name>` in interactive mode, it shows a picker of assets found in the selected scope.
 Use `--inline` for in-terminal full-content replacement mode (or fallback when no editor can be launched).
 Use `dotagents add --all` or `dotagents add --select ...` to avoid interactive pickers when omitting `<name>`.
 Use `dotagents scan --sync-all` or `dotagents scan --sync-select ...` for non-interactive sync runs.
