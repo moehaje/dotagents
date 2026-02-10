@@ -409,6 +409,7 @@ async function resolveCreateTargets(input: {
 	const targets: CreateTarget[] = [];
 	const seen = new Set<string>();
 	const useExplicitTargets = hasExplicitTargetSelection(input.options);
+	const selectedAgents = [...new Set(input.options.agents)];
 
 	if (!useExplicitTargets) {
 		const homePath =
@@ -424,20 +425,39 @@ async function resolveCreateTargets(input: {
 	}
 
 	if (input.options.project) {
-		const projectPath =
-			input.kind === "prompt"
-				? path.join(process.cwd(), ".agents", "prompts", `${input.assetId}.md`)
-				: path.join(process.cwd(), ".agents", "skills", input.assetId, "SKILL.md");
-		addCreateTarget(targets, seen, {
-			id: "project",
-			label: "Project",
-			path: projectPath,
-		});
+		if (selectedAgents.length > 0) {
+			for (const agentId of selectedAgents) {
+				const projectRoot = projectAgentRoot(agentId);
+				const projectPath =
+					input.kind === "prompt"
+						? path.join(projectRoot, "prompts", `${input.assetId}.md`)
+						: path.join(projectRoot, "skills", input.assetId, "SKILL.md");
+				addCreateTarget(targets, seen, {
+					id: `project-${agentId}`,
+					label: `Project: ${agentId}`,
+					path: projectPath,
+				});
+			}
+		} else {
+			const projectPath =
+				input.kind === "prompt"
+					? path.join(process.cwd(), ".agents", "prompts", `${input.assetId}.md`)
+					: path.join(process.cwd(), ".agents", "skills", input.assetId, "SKILL.md");
+			addCreateTarget(targets, seen, {
+				id: "project",
+				label: "Project",
+				path: projectPath,
+			});
+		}
 	}
 
 	const globalRoots = await listGlobalAgentRoots();
 	if (input.options.global) {
-		for (const root of globalRoots) {
+		const roots =
+			selectedAgents.length > 0
+				? globalRoots.filter((root) => selectedAgents.includes(root.id))
+				: globalRoots;
+		for (const root of roots) {
 			const targetPath =
 				input.kind === "prompt"
 					? path.join(root.root, "prompts", `${input.assetId}.md`)
@@ -450,20 +470,22 @@ async function resolveCreateTargets(input: {
 		}
 	}
 
-	for (const agent of input.options.agents) {
-		const matched = globalRoots.find((root) => root.id === agent);
-		if (!matched) {
-			continue;
+	if (!input.options.project && !input.options.global && selectedAgents.length > 0) {
+		for (const agent of selectedAgents) {
+			const matched = globalRoots.find((root) => root.id === agent);
+			if (!matched) {
+				continue;
+			}
+			const targetPath =
+				input.kind === "prompt"
+					? path.join(matched.root, "prompts", `${input.assetId}.md`)
+					: path.join(matched.root, "skills", input.assetId, "SKILL.md");
+			addCreateTarget(targets, seen, {
+				id: `agent-${matched.id}`,
+				label: `Agent: ${matched.label}`,
+				path: targetPath,
+			});
 		}
-		const targetPath =
-			input.kind === "prompt"
-				? path.join(matched.root, "prompts", `${input.assetId}.md`)
-				: path.join(matched.root, "skills", input.assetId, "SKILL.md");
-		addCreateTarget(targets, seen, {
-			id: `agent-${matched.id}`,
-			label: `Agent: ${matched.label}`,
-			path: targetPath,
-		});
 	}
 
 	return targets;
@@ -495,6 +517,16 @@ async function listGlobalAgentRoots(): Promise<Array<{ id: string; label: string
 			root,
 		})),
 	];
+}
+
+function projectAgentRoot(agentId: string): string {
+	if (agentId === "codex") {
+		return path.join(process.cwd(), ".codex");
+	}
+	if (agentId === "claude") {
+		return path.join(process.cwd(), ".claude");
+	}
+	return path.join(process.cwd(), ".agents");
 }
 
 async function writePromptToTargets(
@@ -803,6 +835,9 @@ function printCreateHelp(): void {
 	);
 	process.stdout.write(
 		`  ${styleHint("-p creates in project, -g creates in global agent homes, -a targets specific agents.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("Combine -p and -a to target agent-local project paths (for example: ./.codex or ./.claude).")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("After creation, interactive mode can install the asset to project and/or global agent paths.")}\n`,

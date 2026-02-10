@@ -74,6 +74,7 @@ dotagents skill sync [--check] [--yes] [--home <path>]
 If `dotagents add` is run without kind or name in interactive mode, it prompts to select the asset kind and asset(s) from home.
 `dotagents new` is kept as a compatibility alias for `dotagents create`.
 Use create target flags to control where assets are written: `-p` (project), `-g` (global agent homes), `-a codex|claude|agents`.
+Combine `-p` and `-a` to target agent-local project directories (for example `./.codex` or `./.claude`).
 
 ## Home Repo Resolution
 
