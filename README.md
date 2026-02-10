@@ -63,9 +63,9 @@ dotagents skill sync --check
 ## Command Surface
 
 ```bash
-dotagents create [prompt|skill] [name] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]
-dotagents add [prompt|skill] [name] [--to <path>] [--agent|-a <codex|claude|agents>] [--home <path>] [--force]
-dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force]
+dotagents create [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--title <title>] [--description <text>] [--args <text>] [--content <text>|--content-file <path>|--content-stdin] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]
+dotagents add [prompt|skill] [name] [--to <path>] [--agent|-a <codex|claude|agents>] [--all|--select <name,...>] [--home <path>] [--force]
+dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync|--sync-all|--sync-select <kind:id:path,...>] [--force]
 dotagents config [--home <path> --codex <path> --claude <path> --agents <path>]
 dotagents skill <skills-cli-args...>
 dotagents skill sync [--check] [--yes] [--home <path>]
@@ -75,6 +75,8 @@ If `dotagents add` is run without kind or name in interactive mode, it prompts t
 `dotagents new` is kept as a compatibility alias for `dotagents create`.
 Use create target flags to control where assets are written: `-p` (project), `-g` (global agent homes), `-a codex|claude|agents`.
 Combine `-p` and `-a` to target agent-local project directories (for example `./.codex` or `./.claude`).
+Use `dotagents add --all` or `dotagents add --select ...` to avoid interactive pickers when omitting `<name>`.
+Use `dotagents scan --sync-all` or `dotagents scan --sync-select ...` for non-interactive sync runs.
 
 ## Home Repo Resolution
 
