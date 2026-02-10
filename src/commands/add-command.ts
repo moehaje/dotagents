@@ -17,6 +17,8 @@ type AddOptions = {
 	home?: string;
 	to?: string;
 	agents: string[];
+	all?: boolean;
+	select: string[];
 };
 
 export async function runAddCommand(args: string[]): Promise<number> {
@@ -41,6 +43,12 @@ export async function runAddCommand(args: string[]): Promise<number> {
 		return 2;
 	}
 	parsed.options.agents = normalizedAgents.valid;
+	if (parsed.options.all && parsed.options.select.length > 0) {
+		process.stderr.write(
+			`${styleError("Cannot combine --all with --select.")} ${styleHint("Use one selection mode.")}\n`,
+		);
+		return 2;
+	}
 
 	const home = await ensureHomeRepoStructure(parsed.options.home);
 	const kind = parsed.kind ?? (await resolveInteractiveKind());
@@ -56,6 +64,17 @@ export async function runAddCommand(args: string[]): Promise<number> {
 	}
 
 	if (!parsed.name) {
+		if (parsed.options.all || parsed.options.select.length > 0) {
+			const selected = await selectAssetsFromFlags(home, kind, parsed.options);
+			if (selected.length === 0) {
+				process.stdout.write(`${styleHint("No assets selected.")}\n`);
+				return 1;
+			}
+			for (const name of selected) {
+				await addSingleAsset(kind, home, name, parsed.options);
+			}
+			return 0;
+		}
 		if (!process.stdout.isTTY || !process.stdin.isTTY) {
 			process.stderr.write(`${styleError("Missing asset name.")}\n`);
 			printAddHelp();
@@ -226,6 +245,28 @@ async function resolveAgentTargets(
 	return targets;
 }
 
+async function selectAssetsFromFlags(
+	home: string,
+	kind: "prompt" | "skill",
+	options: AddOptions,
+): Promise<string[]> {
+	const ids =
+		kind === "prompt"
+			? Array.from(await listHomePromptIds(home)).sort((a, b) => a.localeCompare(b))
+			: Array.from(await listHomeSkillIds(home)).sort((a, b) => a.localeCompare(b));
+	if (options.all) {
+		return ids;
+	}
+	const wanted = new Set(
+		options.select
+			.flatMap((item) => item.split(","))
+			.map((item) => item.trim())
+			.filter(Boolean)
+			.map((item) => slugifyName(item)),
+	);
+	return ids.filter((id) => wanted.has(id));
+}
+
 function normalizeAgents(agentInputs: string[]): { valid: string[]; invalid: string[] } {
 	const validSet = new Set<string>();
 	const invalidSet = new Set<string>();
@@ -255,7 +296,7 @@ function parseAddArgs(args: string[]): {
 	help?: boolean;
 } {
 	const positionals: string[] = [];
-	const options: AddOptions = { agents: [] };
+	const options: AddOptions = { agents: [], select: [] };
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -296,6 +337,19 @@ function parseAddArgs(args: string[]): {
 			index += 1;
 			continue;
 		}
+		if (arg === "--all") {
+			options.all = true;
+			continue;
+		}
+		if (arg === "--select") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --select");
+			}
+			options.select.push(value);
+			index += 1;
+			continue;
+		}
 		positionals.push(arg);
 	}
 
@@ -316,7 +370,7 @@ function parseAddArgs(args: string[]): {
 
 function printAddHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--agent|-a <codex|claude|agents>] [--home <path>] [--force]")}\n`,
+		`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--agent|-a <codex|claude|agents>] [--all|--select <name,...>] [--home <path>] [--force]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Copy a prompt or skill from your home repo into the current project.")}\n`,
@@ -326,5 +380,8 @@ function printAddHelp(): void {
 	);
 	process.stdout.write(
 		`  ${styleHint("Use --agent/-a to target configured global agent homes (repeatable or comma-separated).")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("Use --all or --select when <name> is omitted to avoid interactive asset pickers.")}\n`,
 	);
 }

@@ -20,6 +20,8 @@ type ScanOptions = {
 	json?: boolean;
 	sources: string[];
 	sync?: boolean;
+	syncAll?: boolean;
+	syncSelect: string[];
 	force?: boolean;
 	sourcesFull?: boolean;
 };
@@ -38,6 +40,9 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	if (options.help) {
 		printScanHelp();
 		return 0;
+	}
+	if (options.syncAll && options.syncSelect.length > 0) {
+		throw new Error("Cannot combine --sync-all with --sync-select.");
 	}
 
 	const home = await ensureHomeRepoStructure(options.home);
@@ -92,13 +97,22 @@ export async function runScanCommand(args: string[]): Promise<number> {
 		return 0;
 	}
 
+	const unsyncedAssets = [...report.unsyncedPrompts, ...report.unsyncedSkills];
+	if (options.syncAll) {
+		return await syncSelectedAssets(home, unsyncedAssets, Boolean(options.force), null);
+	}
+	if (options.syncSelect.length > 0) {
+		return await syncSelectedAssets(
+			home,
+			unsyncedAssets,
+			Boolean(options.force),
+			new Set(options.syncSelect),
+		);
+	}
+
 	const shouldPromptSync = options.sync || (Boolean(process.stdout.isTTY) && !options.json);
 	if (shouldPromptSync) {
-		return await promptAndSyncUnsynced(
-			home,
-			[...report.unsyncedPrompts, ...report.unsyncedSkills],
-			options.force,
-		);
+		return await promptAndSyncUnsynced(home, unsyncedAssets, options.force);
 	}
 
 	if (report.unsyncedPrompts.length === 0 && report.unsyncedSkills.length === 0) {
@@ -136,7 +150,25 @@ async function promptAndSyncUnsynced(
 	}
 
 	const chosen = new Set(selected);
-	const targets = assets.filter((asset) => chosen.has(`${asset.kind}:${asset.id}:${asset.path}`));
+	return await syncSelectedAssets(home, assets, force, chosen);
+}
+
+async function syncSelectedAssets(
+	home: string,
+	assets: DiscoveredAsset[],
+	force: boolean,
+	selection: Set<string> | null,
+): Promise<number> {
+	const targets =
+		selection === null
+			? assets
+			: assets.filter((asset) => selection.has(`${asset.kind}:${asset.id}:${asset.path}`));
+
+	if (selection !== null && targets.length === 0) {
+		process.stdout.write(`${styleHint("No matching unsynced assets selected for sync.")}\n`);
+		return 1;
+	}
+
 	let failures = 0;
 	for (const asset of targets) {
 		try {
@@ -243,7 +275,7 @@ function printStatusSection(title: string, items: ScanStatusItem[], dot: string)
 }
 
 function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
-	const options: ScanOptions = { sources: [] };
+	const options: ScanOptions = { sources: [], syncSelect: [] };
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (!arg) {
@@ -258,6 +290,23 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 		}
 		if (arg === "--sync") {
 			options.sync = true;
+			continue;
+		}
+		if (arg === "--sync-all") {
+			options.syncAll = true;
+			continue;
+		}
+		if (arg === "--sync-select") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --sync-select");
+			}
+			const entries = value
+				.split(",")
+				.map((item) => item.trim())
+				.filter(Boolean);
+			options.syncSelect.push(...entries);
+			index += 1;
 			continue;
 		}
 		if (arg === "--force" || arg === "-f") {
@@ -293,10 +342,16 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 
 function printScanHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync] [--force] [--sources-full]")}\n`,
+		`Usage: ${styleCommand("dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync|--sync-all|--sync-select <kind:id:path,...>] [--force] [--sources-full]")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("--sync opens interactive multi-select when unsynced assets are found.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("--sync-all imports all unsynced assets without prompting.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("--sync-select imports specific unsynced assets by key [kind:id:path].")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("--sources-full prints all configured source paths instead of summary.")}\n`,
