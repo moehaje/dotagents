@@ -494,19 +494,57 @@ function parseEditArgs(args: string[]): {
 
 function printEditHelp(): void {
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents edit [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--file <relative/path>] [--inline] [--editor <cmd>] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <codex|claude|agents>]")}\n`,
+		`${styleLabel("Usage")}: ${styleCommand("dotagents edit [prompt|skill] [name] [options]")}\n`,
 	);
+	process.stdout.write(`${styleLabel("Options")}\n`);
+	process.stdout.write(
+		`  ${styleCommand("--kind <prompt|skill>")}  ${styleHint("Set asset kind explicitly")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--name <slug>")}          ${styleHint("Set asset name explicitly")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--file <relative/path>")} ${styleHint("Skill-only file path; defaults to SKILL.md")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--editor <cmd>")}         ${styleHint("Override editor command for this invocation")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--inline")}               ${styleHint("Use in-terminal full-content replacement mode")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--home <path>")}          ${styleHint("Use a specific home repository")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--project, -p")}          ${styleHint("Target project-local asset paths")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--global, -g")}           ${styleHint("Target configured global agent paths")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--agent, -a <name>")}     ${styleHint("Filter by agent: codex, claude, agents")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleCommand("--help, -h")}            ${styleHint("Show this help")}\n`,
+	);
+	process.stdout.write(`\n${styleLabel("Examples")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents edit prompt release")}\n`);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents edit skill terminal-ui --file references/render-single-write.md")}\n`,
+	);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents edit -p")}\n`);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents edit prompt release -g -a codex")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents edit skill terminal-ui --inline")}\n`,
+	);
+	process.stdout.write(`\n${styleLabel("Notes")}\n`);
 	process.stdout.write(
 		`  ${styleHint("Defaults to home scope when no target flags are provided.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("If name is omitted in interactive mode, choose from assets discovered in the selected scope.")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleHint("Skill edits default to SKILL.md; use --file to edit another skill-local file.")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleHint("Use --inline for terminal editing, or --editor to override editor resolution.")}\n`,
 	);
 }
 
