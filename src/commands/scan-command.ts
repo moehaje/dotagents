@@ -341,9 +341,31 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 }
 
 function printScanHelp(): void {
+	const writeOption = (flag: string, description: string) => {
+		process.stdout.write(`  ${styleCommand(flag.padEnd(36))} ${styleHint(description)}\n`);
+	};
+
+	process.stdout.write(`${styleLabel("Usage")}: ${styleCommand("dotagents scan [options]")}\n`);
+	process.stdout.write(`${styleLabel("Options")}\n`);
+	writeOption("--home <path>", "Use a specific home repository");
+	writeOption("--source <path>", "Add explicit scan source (repeatable)");
+	writeOption("--json", "Emit machine-readable JSON output");
+	writeOption("--sync", "Prompt to select unsynced assets to import");
+	writeOption("--sync-all", "Import all unsynced assets without prompting");
+	writeOption("--sync-select <kind:id:path,...>", "Import specific unsynced assets by key");
+	writeOption("--force, -f", "Overwrite on import when target exists");
+	writeOption("--sources-full", "Print full configured source list");
+	writeOption("--help, -h", "Show this help");
+	process.stdout.write(`\n${styleLabel("Examples")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan --sync")}\n`);
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync|--sync-all|--sync-select <kind:id:path,...>] [--force] [--sources-full]")}\n`,
+		`  ${styleHint("$")} ${styleCommand("dotagents scan --sync-all --force")}\n`,
 	);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents scan --sync-select prompt:release:/path/to/release.md")}\n`,
+	);
+	process.stdout.write(`\n${styleLabel("Notes")}\n`);
 	process.stdout.write(
 		`  ${styleHint("--sync opens interactive multi-select when unsynced assets are found.")}\n`,
 	);

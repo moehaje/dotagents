@@ -789,14 +789,42 @@ function parseCreateArgs(args: string[]): {
 }
 
 function printCreateHelp(): void {
+	const writeOption = (flag: string, description: string) => {
+		process.stdout.write(`  ${styleCommand(flag.padEnd(32))} ${styleHint(description)}\n`);
+	};
+
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents create [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--title <title>] [--description <text>] [--args <text>] [--content <text>|--content-file <path>|--content-stdin] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]")}\n`,
+		`${styleLabel("Usage")}: ${styleCommand("dotagents create [prompt|skill] [name] [options]")}\n`,
+	);
+	process.stdout.write(`${styleLabel("Options")}\n`);
+	writeOption("--kind <prompt|skill>", "Set asset kind explicitly");
+	writeOption("--name <slug>", "Set asset name explicitly");
+	writeOption("--title <title>", "Prompt title (prompt only)");
+	writeOption("--description <text>", "Asset description");
+	writeOption("--args <text>", "Prompt args frontmatter (prompt only)");
+	writeOption("--content <text>", "Inline prompt content (prompt only)");
+	writeOption("--content-file <path>", "Read prompt content from file");
+	writeOption("--content-stdin", "Read prompt content from stdin");
+	writeOption("--home <path>", "Use a specific home repository");
+	writeOption("--project, -p", "Create in project-local paths");
+	writeOption("--global, -g", "Create in configured global agent homes");
+	writeOption("--agent, -a <name>", "Filter target agents: codex, claude, agents");
+	writeOption("--force, -f", "Overwrite existing files when allowed");
+	writeOption("--help, -h", "Show this help");
+	process.stdout.write(`\n${styleLabel("Examples")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents create prompt")}\n`);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents create prompt release --content-file ./release.md")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents create skill terminal-ui -p -a codex")}\n`,
+	);
+	process.stdout.write(`\n${styleLabel("Notes")}\n`);
+	process.stdout.write(
+		`  ${styleHint("If kind is omitted in interactive mode, you'll choose prompt or skill.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("Use --content-file or --content-stdin for large markdown prompts.")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleHint("If kind is omitted in interactive mode, you'll choose prompt or skill.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("-p creates in project, -g creates in global agent homes, -a targets specific agents.")}\n`,

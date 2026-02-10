@@ -10,7 +10,7 @@ import {
 	slugifyName,
 } from "../core/assets.js";
 import { buildDefaultConfig, loadGlobalConfig } from "../core/config.js";
-import { styleCommand, styleError, styleHint, styleSuccess } from "../ui/brand.js";
+import { styleCommand, styleError, styleHint, styleLabel, styleSuccess } from "../ui/brand.js";
 
 type AddOptions = {
 	force?: boolean;
@@ -369,9 +369,28 @@ function parseAddArgs(args: string[]): {
 }
 
 function printAddHelp(): void {
+	const writeOption = (flag: string, description: string) => {
+		process.stdout.write(`  ${styleCommand(flag.padEnd(32))} ${styleHint(description)}\n`);
+	};
+
 	process.stdout.write(
-		`Usage: ${styleCommand("dotagents add [prompt|skill] <name> [--to <path>] [--agent|-a <codex|claude|agents>] [--all|--select <name,...>] [--home <path>] [--force]")}\n`,
+		`${styleLabel("Usage")}: ${styleCommand("dotagents add [prompt|skill] [name] [options]")}\n`,
 	);
+	process.stdout.write(`${styleLabel("Options")}\n`);
+	writeOption("--to <path>", "Override destination path");
+	writeOption("--agent, -a <name>", "Target configured global homes: codex, claude, agents");
+	writeOption("--all", "When name omitted, add all matching home assets");
+	writeOption("--select <name,...>", "When name omitted, add selected comma-separated assets");
+	writeOption("--home <path>", "Use a specific home repository");
+	writeOption("--force, -f", "Overwrite existing destination");
+	writeOption("--help, -h", "Show this help");
+	process.stdout.write(`\n${styleLabel("Examples")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents add prompt release")}\n`);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents add skill terminal-ui --agent codex")}\n`,
+	);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents add prompt --all")}\n`);
+	process.stdout.write(`\n${styleLabel("Notes")}\n`);
 	process.stdout.write(
 		`  ${styleHint("Copy a prompt or skill from your home repo into the current project.")}\n`,
 	);

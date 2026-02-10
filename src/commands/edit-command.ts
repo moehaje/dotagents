@@ -493,40 +493,24 @@ function parseEditArgs(args: string[]): {
 }
 
 function printEditHelp(): void {
+	const writeOption = (flag: string, description: string) => {
+		process.stdout.write(`  ${styleCommand(flag.padEnd(32))} ${styleHint(description)}\n`);
+	};
+
 	process.stdout.write(
 		`${styleLabel("Usage")}: ${styleCommand("dotagents edit [prompt|skill] [name] [options]")}\n`,
 	);
 	process.stdout.write(`${styleLabel("Options")}\n`);
-	process.stdout.write(
-		`  ${styleCommand("--kind <prompt|skill>")}  ${styleHint("Set asset kind explicitly")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--name <slug>")}          ${styleHint("Set asset name explicitly")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--file <relative/path>")} ${styleHint("Skill-only file path; defaults to SKILL.md")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--editor <cmd>")}         ${styleHint("Override editor command for this invocation")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--inline")}               ${styleHint("Use in-terminal full-content replacement mode")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--home <path>")}          ${styleHint("Use a specific home repository")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--project, -p")}          ${styleHint("Target project-local asset paths")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--global, -g")}           ${styleHint("Target configured global agent paths")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--agent, -a <name>")}     ${styleHint("Filter by agent: codex, claude, agents")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--help, -h")}            ${styleHint("Show this help")}\n`,
-	);
+	writeOption("--kind <prompt|skill>", "Set asset kind explicitly");
+	writeOption("--name <slug>", "Set asset name explicitly");
+	writeOption("--file <relative/path>", "Skill-only file path; defaults to SKILL.md");
+	writeOption("--editor <cmd>", "Override editor command for this invocation");
+	writeOption("--inline", "Use in-terminal full-content replacement mode");
+	writeOption("--home <path>", "Use a specific home repository");
+	writeOption("--project, -p", "Target project-local asset paths");
+	writeOption("--global, -g", "Target configured global agent paths");
+	writeOption("--agent, -a <name>", "Filter by agent: codex, claude, agents");
+	writeOption("--help, -h", "Show this help");
 	process.stdout.write(`\n${styleLabel("Examples")}\n`);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents edit prompt release")}\n`);
 	process.stdout.write(

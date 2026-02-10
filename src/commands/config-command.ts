@@ -257,29 +257,20 @@ async function promptOptional(message: string, initialValue?: string): Promise<s
 }
 
 function printConfigHelp(): void {
+	const writeOption = (flag: string, description: string) => {
+		process.stdout.write(`  ${styleCommand(flag.padEnd(30))} ${styleHint(description)}\n`);
+	};
+
 	process.stdout.write(`${styleLabel("Usage")}: ${styleCommand("dotagents config [options]")}\n`);
 	process.stdout.write(`${styleLabel("Options")}\n`);
-	process.stdout.write(
-		`  ${styleCommand("--home <path>")}      ${styleHint("Set home repo path")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--editor <cmd>")}    ${styleHint("Set editor command (empty string clears)")}\n`,
-	);
-	process.stdout.write(`  ${styleCommand("--codex <path>")}     ${styleHint("Set codex path")}\n`);
-	process.stdout.write(`  ${styleCommand("--claude <path>")}    ${styleHint("Set claude path")}\n`);
-	process.stdout.write(
-		`  ${styleCommand("--agents <path>")}    ${styleHint("Set generic .agents path")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--source <path>")}    ${styleHint("Add custom scan source (repeatable)")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--clear-sources")}    ${styleHint("Clear all custom sources")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--list")}             ${styleHint("Print config as JSON")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleCommand("--json")}             ${styleHint("Print config as JSON")}\n`,
-	);
+	writeOption("--home <path>", "Set home repo path");
+	writeOption("--editor <cmd>", "Set editor command (empty string clears)");
+	writeOption("--codex <path>", "Set codex path");
+	writeOption("--claude <path>", "Set claude path");
+	writeOption("--agents <path>", "Set generic .agents path");
+	writeOption("--source <path>", "Add custom scan source (repeatable)");
+	writeOption("--clear-sources", "Clear all custom sources");
+	writeOption("--list", "Print config as JSON");
+	writeOption("--json", "Print config as JSON");
+	writeOption("--help, -h", "Show this help");
 }
