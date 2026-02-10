@@ -53,6 +53,7 @@ npx @artsnlabs/dotagents --help
 dotagents --help
 dotagents create prompt
 dotagents add prompt release
+dotagents edit prompt release
 dotagents add skill terminal-ui
 dotagents scan --sync
 dotagents config
@@ -65,8 +66,9 @@ dotagents skill sync --check
 ```bash
 dotagents create [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--title <title>] [--description <text>] [--args <text>] [--content <text>|--content-file <path>|--content-stdin] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]
 dotagents add [prompt|skill] [name] [--to <path>] [--agent|-a <codex|claude|agents>] [--all|--select <name,...>] [--home <path>] [--force]
+dotagents edit [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--file <relative/path>] [--inline] [--editor <cmd>] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>]
 dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync|--sync-all|--sync-select <kind:id:path,...>] [--force]
-dotagents config [--home <path> --codex <path> --claude <path> --agents <path>]
+dotagents config [--home <path> --editor <cmd> --codex <path> --claude <path> --agents <path>]
 dotagents skill <skills-cli-args...>
 dotagents skill sync [--check] [--yes] [--home <path>]
 ```
@@ -75,6 +77,9 @@ If `dotagents add` is run without kind or name in interactive mode, it prompts t
 `dotagents new` is kept as a compatibility alias for `dotagents create`.
 Use create target flags to control where assets are written: `-p` (project), `-g` (global agent homes), `-a codex|claude|agents`.
 Combine `-p` and `-a` to target agent-local project directories (for example `./.codex` or `./.claude`).
+`dotagents edit` uses the same scope flags and defaults to home scope when no target flags are provided.
+`dotagents edit skill` defaults to `SKILL.md`; pass `--file <relative/path>` to edit another file in the skill directory.
+Use `--inline` for in-terminal full-content replacement mode (or fallback when no editor can be launched).
 Use `dotagents add --all` or `dotagents add --select ...` to avoid interactive pickers when omitting `<name>`.
 Use `dotagents scan --sync-all` or `dotagents scan --sync-select ...` for non-interactive sync runs.
 

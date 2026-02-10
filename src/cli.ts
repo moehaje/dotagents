@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { runAddCommand } from "./commands/add-command.js";
 import { runConfigCommand } from "./commands/config-command.js";
 import { runCreateCommand } from "./commands/create-command.js";
+import { runEditCommand } from "./commands/edit-command.js";
 import { runScanCommand } from "./commands/scan-command.js";
 import { runSkillCommand } from "./commands/skill-command.js";
 import { ensureConfiguredForRun } from "./core/bootstrap.js";
@@ -32,6 +33,9 @@ export async function runCli(argv: string[]): Promise<number> {
 		}
 		if (command === "add") {
 			return await runAddCommand(rest);
+		}
+		if (command === "edit") {
+			return await runEditCommand(rest);
 		}
 		if (command === "scan") {
 			return await runScanCommand(rest);
