@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { runAddCommand } from "./commands/add-command.js";
+import { runCheckCommand } from "./commands/check-command.js";
 import { runConfigCommand } from "./commands/config-command.js";
 import { runCreateCommand } from "./commands/create-command.js";
 import { runEditCommand } from "./commands/edit-command.js";
@@ -24,6 +25,9 @@ export async function runCli(argv: string[]): Promise<number> {
 	try {
 		if (command === "config") {
 			return await runConfigCommand(rest);
+		}
+		if (command === "check") {
+			return await runCheckCommand(rest);
 		}
 		// Initialize global config and home repo layout on first run.
 		await ensureConfiguredForRun();

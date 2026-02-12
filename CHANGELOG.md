@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Add `dotagents check` command with prompt/skill metadata validation, `--json` machine output, kind filtering (`prompt|skill`), and `--strict` warning-as-error mode for CI gating.
+
 ## [0.4.0] - 2026-02-10
 
 ### Added

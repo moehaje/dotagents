@@ -12,6 +12,7 @@
 - Create prompts and skills in a tracked home repo.
 - Optionally install newly created assets to project or configured global agent paths.
 - Add prompts and skills into the current project quickly.
+- Validate prompt and skill assets before sync/install workflows.
 - Scan agent directories to find unsynced assets.
 - Sync skills using a registry-driven workflow.
 - Delegate skill package operations to the upstream `skills` CLI.
@@ -54,6 +55,7 @@ dotagents --help
 dotagents create prompt
 dotagents add prompt release
 dotagents edit prompt release
+dotagents check --strict
 dotagents add skill terminal-ui
 dotagents scan --sync
 dotagents config
@@ -67,6 +69,7 @@ dotagents skill sync --check
 dotagents create [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--title <title>] [--description <text>] [--args <text>] [--content <text>|--content-file <path>|--content-stdin] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]
 dotagents add [prompt|skill] [name] [--to <path>] [--agent|-a <codex|claude|agents>] [--all|--select <name,...>] [--home <path>] [--force]
 dotagents edit [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--file <relative/path>] [--inline] [--editor <cmd>] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>]
+dotagents check [prompt|skill] [--home <path>] [--json] [--strict]
 dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync|--sync-all|--sync-select <kind:id:path,...>] [--force]
 dotagents config [--home <path> --editor <cmd> --codex <path> --claude <path> --agents <path>]
 dotagents skill <skills-cli-args...>
@@ -81,6 +84,7 @@ Combine `-p` and `-a` to target agent-local project directories (for example `./
 `dotagents edit skill` defaults to `SKILL.md`; pass `--file <relative/path>` to edit another file in the skill directory.
 If `dotagents edit` runs without `<name>` in interactive mode, it shows a picker of assets found in the selected scope.
 Use `--inline` for in-terminal full-content replacement mode (or fallback when no editor can be launched).
+Use `dotagents check` as a quality gate for prompt/skill frontmatter; add `--strict` to fail on warnings and `--json` for CI parsing.
 Use `dotagents add --all` or `dotagents add --select ...` to avoid interactive pickers when omitting `<name>`.
 Use `dotagents scan --sync-all` or `dotagents scan --sync-select ...` for non-interactive sync runs.
 
