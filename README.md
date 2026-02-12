@@ -69,7 +69,7 @@ dotagents skill sync --check
 dotagents create [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--title <title>] [--description <text>] [--args <text>] [--content <text>|--content-file <path>|--content-stdin] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]
 dotagents add [prompt|skill] [name] [--to <path>] [--agent|-a <codex|claude|agents>] [--all|--select <name,...>] [--home <path>] [--force]
 dotagents edit [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--file <relative/path>] [--inline] [--editor <cmd>] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>]
-dotagents check [prompt|skill] [--home <path>] [--json] [--strict]
+dotagents check [prompt|skill] [--home <path>] [--json] [--strict] [--filter <name,...>] [--exclude <name,...>]
 dotagents scan [--home <path>] [--source <path> ...] [--json] [--sync|--sync-all|--sync-select <kind:id:path,...>] [--force]
 dotagents config [--home <path> --editor <cmd> --codex <path> --claude <path> --agents <path>]
 dotagents skill <skills-cli-args...>
@@ -84,7 +84,7 @@ Combine `-p` and `-a` to target agent-local project directories (for example `./
 `dotagents edit skill` defaults to `SKILL.md`; pass `--file <relative/path>` to edit another file in the skill directory.
 If `dotagents edit` runs without `<name>` in interactive mode, it shows a picker of assets found in the selected scope.
 Use `--inline` for in-terminal full-content replacement mode (or fallback when no editor can be launched).
-Use `dotagents check` as a quality gate for prompt/skill frontmatter; add `--strict` to fail on warnings and `--json` for CI parsing.
+Use `dotagents check` as a quality gate for prompt/skill frontmatter; add `--strict` to fail on warnings, `--json` for CI parsing, `--filter` to check exact asset ids/names, and `--exclude` to skip exact assets.
 Use `dotagents add --all` or `dotagents add --select ...` to avoid interactive pickers when omitting `<name>`.
 Use `dotagents scan --sync-all` or `dotagents scan --sync-select ...` for non-interactive sync runs.
 

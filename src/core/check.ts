@@ -43,11 +43,19 @@ type FrontmatterParseResult =
 export async function runAssetChecks(options: {
 	home: string;
 	kindFilter?: AssetKind;
+	filterNames?: string[];
+	excludeNames?: string[];
 }): Promise<CheckSummary> {
+	const includeNames = normalizeSelectionNames(options.filterNames ?? []);
+	const excludeNames = normalizeSelectionNames(options.excludeNames ?? []);
 	const promptResults =
-		options.kindFilter === "skill" ? [] : await checkPrompts(path.resolve(options.home));
+		options.kindFilter === "skill"
+			? []
+			: await checkPrompts(path.resolve(options.home), includeNames, excludeNames);
 	const skillResults =
-		options.kindFilter === "prompt" ? [] : await checkSkills(path.resolve(options.home));
+		options.kindFilter === "prompt"
+			? []
+			: await checkSkills(path.resolve(options.home), includeNames, excludeNames);
 
 	const prompts = summarizeKind(promptResults);
 	const skills = summarizeKind(skillResults);
@@ -64,13 +72,20 @@ export async function runAssetChecks(options: {
 	};
 }
 
-async function checkPrompts(home: string): Promise<AssetCheckResult[]> {
+async function checkPrompts(
+	home: string,
+	includeNames: Set<string>,
+	excludeNames: Set<string>,
+): Promise<AssetCheckResult[]> {
 	const promptIds = [...(await listPromptIdsFromRoot(home))].sort((left, right) =>
 		left.localeCompare(right),
 	);
 	const results: AssetCheckResult[] = [];
 
 	for (const id of promptIds) {
+		if (!shouldCheckAsset(id, includeNames, excludeNames)) {
+			continue;
+		}
 		const promptPath = path.join(home, "prompts", `${id}.md`);
 		const issues: AssetCheckIssue[] = [];
 		const content = await readFileSafe(promptPath);
@@ -124,19 +139,30 @@ async function checkPrompts(home: string): Promise<AssetCheckResult[]> {
 	return results;
 }
 
-async function checkSkills(home: string): Promise<AssetCheckResult[]> {
+async function checkSkills(
+	home: string,
+	includeNames: Set<string>,
+	excludeNames: Set<string>,
+): Promise<AssetCheckResult[]> {
 	const skillIds = [...(await listHomeSkillIds(home))].sort((left, right) =>
 		left.localeCompare(right),
 	);
-	const checkedIds = new Set(skillIds);
+	const checkedIds = new Set<string>();
 	const results: AssetCheckResult[] = [];
 
 	for (const id of skillIds) {
+		if (!shouldCheckAsset(id, includeNames, excludeNames)) {
+			continue;
+		}
+		checkedIds.add(id);
 		results.push(await validateSkill(home, id));
 	}
 
 	const directChildren = await listDirectSkillDirectoryIds(home);
 	for (const id of directChildren) {
+		if (!shouldCheckAsset(id, includeNames, excludeNames)) {
+			continue;
+		}
 		if (checkedIds.has(id)) {
 			continue;
 		}
@@ -350,4 +376,25 @@ async function pathExists(targetPath: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+function normalizeSelectionNames(values: string[]): Set<string> {
+	const normalized = values
+		.flatMap((value) => value.split(","))
+		.map((value) => slugifyName(value))
+		.filter(Boolean);
+	return new Set(normalized);
+}
+
+function shouldCheckAsset(
+	id: string,
+	includeNames: Set<string>,
+	excludeNames: Set<string>,
+): boolean {
+	const baseName = path.posix.basename(id);
+	const isIncluded = includeNames.size === 0 || includeNames.has(id) || includeNames.has(baseName);
+	if (!isIncluded) {
+		return false;
+	}
+	return !(excludeNames.has(id) || excludeNames.has(baseName));
 }

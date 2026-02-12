@@ -10,6 +10,8 @@ type CheckOptions = {
 	json?: boolean;
 	strict?: boolean;
 	kind?: "prompt" | "skill";
+	filter: string[];
+	exclude: string[];
 };
 
 export async function runCheckCommand(args: string[]): Promise<number> {
@@ -39,6 +41,8 @@ export async function runCheckCommand(args: string[]): Promise<number> {
 	const summary = await runAssetChecks({
 		home,
 		kindFilter: parsed.options.kind,
+		filterNames: parsed.options.filter,
+		excludeNames: parsed.options.exclude,
 	});
 	const shouldFail =
 		summary.errorCount > 0 || (Boolean(parsed.options.strict) && summary.warningCount > 0);
@@ -60,7 +64,10 @@ export async function runCheckCommand(args: string[]): Promise<number> {
 }
 
 function parseCheckArgs(args: string[]): { options: CheckOptions; help?: boolean } {
-	const options: CheckOptions = {};
+	const options: CheckOptions = {
+		filter: [],
+		exclude: [],
+	};
 	const positionals: string[] = [];
 
 	for (let index = 0; index < args.length; index += 1) {
@@ -85,6 +92,24 @@ function parseCheckArgs(args: string[]): { options: CheckOptions; help?: boolean
 				throw new Error("Missing value for --home");
 			}
 			options.home = value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--filter") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --filter");
+			}
+			options.filter.push(value);
+			index += 1;
+			continue;
+		}
+		if (arg === "--exclude") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --exclude");
+			}
+			options.exclude.push(value);
 			index += 1;
 			continue;
 		}
@@ -170,9 +195,15 @@ function printCheckHelp(): void {
 	writeOption("--home <path>", "Use a specific home repository");
 	writeOption("--json", "Emit machine-readable JSON report");
 	writeOption("--strict", "Treat warnings as failures");
+	writeOption("--filter <name,...>", "Check only assets matching exact id or basename");
+	writeOption("--exclude <name,...>", "Skip assets matching exact id or basename");
 	writeOption("--help, -h", "Show this help");
 	process.stdout.write(`\n${styleLabel("Examples")}\n`);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents check")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents check --filter axiom")}\n`);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents check --exclude legacy --strict")}\n`,
+	);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents check prompt --strict")}\n`);
 	process.stdout.write(
 		`  ${styleHint("$")} ${styleCommand("dotagents check skill --home ~/dotagents --json")}\n`,

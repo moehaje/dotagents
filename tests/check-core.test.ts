@@ -85,4 +85,33 @@ describe("runAssetChecks", () => {
 		expect(skillOnly.skills.checked).toBe(0);
 		expect(skillOnly.errorCount).toBe(0);
 	});
+
+	it("supports include/exclude selection by id or basename", async () => {
+		const home = await fs.mkdtemp(path.join(os.tmpdir(), "dotagents-check-core-"));
+		tempDirs.push(home);
+
+		await fs.mkdir(path.join(home, "prompts", "nested"), { recursive: true });
+		await fs.mkdir(path.join(home, "skills", "axiom"), { recursive: true });
+		await fs.writeFile(
+			path.join(home, "prompts", "nested", "axiom.md"),
+			"---\ndescription: Nested axiom prompt\n---\n",
+			"utf8",
+		);
+		await fs.writeFile(path.join(home, "prompts", "beta.md"), "# missing frontmatter\n", "utf8");
+		await fs.writeFile(
+			path.join(home, "skills", "axiom", "SKILL.md"),
+			"---\nname: axiom\ndescription: Axiom skill\n---\n",
+			"utf8",
+		);
+
+		const onlyAxiom = await runAssetChecks({ home, filterNames: ["axiom"] });
+		expect(onlyAxiom.prompts.checked).toBe(1);
+		expect(onlyAxiom.skills.checked).toBe(1);
+		expect(onlyAxiom.errorCount).toBe(0);
+
+		const withoutAxiom = await runAssetChecks({ home, excludeNames: ["axiom"] });
+		expect(withoutAxiom.prompts.checked).toBe(1);
+		expect(withoutAxiom.skills.checked).toBe(0);
+		expect(withoutAxiom.errorCount).toBe(1);
+	});
 });
