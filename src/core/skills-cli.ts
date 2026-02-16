@@ -80,9 +80,8 @@ async function collectFiles(dir: string): Promise<string[]> {
 
 async function cloneStagedSkill(skillDir: string): Promise<string> {
 	const cloneRoot = await fs.mkdtemp(path.join(os.tmpdir(), "dotagents-staged-skill-"));
-	const cloneDir = path.join(cloneRoot, "skill");
-	await fs.cp(skillDir, cloneDir, { recursive: true, force: true });
-	return cloneDir;
+	await fs.cp(skillDir, cloneRoot, { recursive: true, force: true });
+	return cloneRoot;
 }
 
 async function pathExists(targetPath: string): Promise<boolean> {

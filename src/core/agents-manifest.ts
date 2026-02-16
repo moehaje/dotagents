@@ -36,7 +36,11 @@ export function parseAgentsManifest(raw: string, sourceName = "agents.toml"): Ag
 	const parsed = parseTomlSections(raw, sourceName);
 	const project = parsed.project;
 	const skills = parsed.skills.map((skill, index) => {
-		const id = requiredValue(skill.id, sourceName, `skills[${index + 1}].id`);
+		const id = validateSkillId(
+			requiredValue(skill.id, sourceName, `skills[${index + 1}].id`),
+			sourceName,
+			`skills[${index + 1}].id`,
+		);
 		const source = requiredValue(skill.source, sourceName, `skills[${index + 1}].source`);
 		return { id, source };
 	});
@@ -68,7 +72,11 @@ export function parseAgentsLock(raw: string, sourceName = "agents.lock.toml"): A
 		throw new Error(`${sourceName}: version must be 1.`);
 	}
 	const skills = parsed.skills.map((skill, index) => ({
-		id: requiredValue(skill.id, sourceName, `skills[${index + 1}].id`),
+		id: validateSkillId(
+			requiredValue(skill.id, sourceName, `skills[${index + 1}].id`),
+			sourceName,
+			`skills[${index + 1}].id`,
+		),
 		source: requiredValue(skill.source, sourceName, `skills[${index + 1}].source`),
 		resolved: requiredValue(skill.resolved, sourceName, `skills[${index + 1}].resolved`),
 		integrity: requiredValue(skill.integrity, sourceName, `skills[${index + 1}].integrity`),
@@ -145,6 +153,7 @@ export async function installSkillsFromLock(
 
 	const results: Array<{ id: string; installed: boolean; message?: string }> = [];
 	for (const skill of lock.skills) {
+		assertSafeSkillId(skill.id);
 		const staged = await stageSkill(skill.resolved);
 		if (!staged.success || !staged.skillDir) {
 			results.push({
@@ -182,6 +191,7 @@ export async function checkInstalledSkillsAgainstLock(
 	const projectRoot = options?.projectRoot ?? process.cwd();
 	const output: Array<{ id: string; status: "ok" | "missing" | "mismatch"; message?: string }> = [];
 	for (const skill of lock.skills) {
+		assertSafeSkillId(skill.id);
 		const targetDir = path.join(projectRoot, ".agents", "skills", skill.id);
 		if (!(await pathExists(targetDir))) {
 			output.push({ id: skill.id, status: "missing", message: "Skill directory is missing." });
@@ -224,6 +234,28 @@ function requiredValue(value: string | undefined, sourceName: string, field: str
 		throw new Error(`${sourceName}: missing required field ${field}.`);
 	}
 	return value;
+}
+
+function validateSkillId(id: string, sourceName: string, field: string): string {
+	assertSafeSkillId(id, `${sourceName}: invalid ${field}`);
+	return id;
+}
+
+function assertSafeSkillId(id: string, prefix = "Invalid skill id"): void {
+	const value = id.trim();
+	if (!value) {
+		throw new Error(`${prefix}: empty value`);
+	}
+	if (value.includes("\0") || value.includes("\\")) {
+		throw new Error(`${prefix}: ${id}`);
+	}
+	if (value.startsWith("/") || path.isAbsolute(value)) {
+		throw new Error(`${prefix}: ${id}`);
+	}
+	const segments = value.split("/");
+	if (segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")) {
+		throw new Error(`${prefix}: ${id}`);
+	}
 }
 
 function parseTomlSections(

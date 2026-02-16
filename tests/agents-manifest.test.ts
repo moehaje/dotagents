@@ -49,6 +49,16 @@ source = "b"
 `),
 		).toThrow(/duplicate skill id/i);
 	});
+
+	it("rejects path traversal skill ids", () => {
+		expect(() =>
+			parseAgentsManifest(`
+[[skills]]
+id = "../escape"
+source = "example/skill"
+`),
+		).toThrow(/invalid/i);
+	});
 });
 
 describe("agents lock parser/serializer", () => {

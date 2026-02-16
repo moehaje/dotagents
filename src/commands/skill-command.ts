@@ -223,7 +223,15 @@ async function runManifestCheckLock(args: string[]): Promise<number> {
 async function loadOrGenerateLock(options: ManifestOptions): Promise<AgentsLock> {
 	try {
 		return await loadAgentsLock(options.lockfilePath);
-	} catch {
+	} catch (error) {
+		const isMissingLock =
+			typeof error === "object" &&
+			error !== null &&
+			"code" in error &&
+			(error as { code?: string }).code === "ENOENT";
+		if (!isMissingLock) {
+			throw error;
+		}
 		const manifest = await loadAgentsManifest(options.manifestPath);
 		const lock = await resolveAgentsLock(manifest);
 		await writeAgentsLock(options.lockfilePath, lock);

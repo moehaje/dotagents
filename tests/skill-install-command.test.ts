@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { runCli } from "../src/cli.js";
 import { runSkillCommand } from "../src/commands/skill-command.js";
 import { hashDirectory } from "../src/core/skills-cli.js";
 
@@ -54,5 +55,31 @@ integrity = "sha256:${hash}"
 
 		const exitCode = await runSkillCommand(["check-lock", "--lockfile", lockfile]);
 		expect(exitCode).toBe(0);
+	});
+
+	it("fails install when lockfile exists but is invalid", async () => {
+		const projectRoot = process.cwd();
+		process.env.INIT_CWD = projectRoot;
+		const manifest = path.join(projectRoot, "agents.toml");
+		const lockfile = path.join(projectRoot, "agents.lock.toml");
+		await fs.writeFile(
+			manifest,
+			`[[skills]]
+id = "demo"
+source = "example/demo"
+`,
+			"utf8",
+		);
+		await fs.writeFile(lockfile, `version = "not-a-number"\n`, "utf8");
+		const exitCode = await runCli([
+			"skill",
+			"install",
+			"--manifest",
+			manifest,
+			"--lockfile",
+			lockfile,
+		]);
+		expect(exitCode).toBe(1);
+		expect(await fs.readFile(lockfile, "utf8")).toContain(`version = "not-a-number"`);
 	});
 });
