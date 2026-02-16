@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Add `dotagents init` command to scaffold project-local `.agents` layout with optional post-init asset install (`--with`) or symlink mode (`--link`).
 - Add `dotagents link` command for symlink-based prompt/skill installs, and add parity mode `dotagents add --mode symlink`.
 - Add scan conflict analysis with `dotagents scan --diff`, `--diff-full`, and `--explain-conflicts`, including structured conflict details in `--json` output.
+- Fix JSON mode output to suppress banner noise for machine parsing, and add `dotagents scan --source-only` for isolated source-only scans.
 
 ## [0.4.0] - 2026-02-10
 
