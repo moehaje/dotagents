@@ -3,7 +3,6 @@ import path from "node:path";
 import * as p from "@clack/prompts";
 import {
 	ensureHomeRepoStructure,
-	type InstallMode,
 	installPromptFromHome,
 	installSkillFromHome,
 	listHomePromptIds,
@@ -13,26 +12,27 @@ import {
 import { buildDefaultConfig, loadGlobalConfig } from "../core/config.js";
 import { styleCommand, styleError, styleHint, styleLabel, styleSuccess } from "../ui/brand.js";
 
-type AddOptions = {
+type LinkOptions = {
 	force?: boolean;
 	home?: string;
 	to?: string;
 	agents: string[];
 	all?: boolean;
 	select: string[];
-	mode: InstallMode;
+	kind?: "prompt" | "skill";
+	name?: string;
 };
 
-export async function runAddCommand(args: string[]): Promise<number> {
-	let parsed: ReturnType<typeof parseAddArgs>;
+export async function runLinkCommand(args: string[]): Promise<number> {
+	let parsed: ReturnType<typeof parseLinkArgs>;
 	try {
-		parsed = parseAddArgs(args);
+		parsed = parseLinkArgs(args);
 	} catch (error) {
 		process.stderr.write(`${styleError(error instanceof Error ? error.message : String(error))}\n`);
 		return 2;
 	}
 	if (parsed.help) {
-		printAddHelp();
+		printLinkHelp();
 		return 0;
 	}
 	if (parsed.options.to && parsed.options.agents.length > 0) {
@@ -59,7 +59,7 @@ export async function runAddCommand(args: string[]): Promise<number> {
 	}
 
 	const home = await ensureHomeRepoStructure(parsed.options.home);
-	const kind = parsed.kind ?? (await resolveInteractiveKind());
+	const kind = parsed.kind ?? parsed.options.kind ?? (await resolveInteractiveKind());
 	if (!kind) {
 		p.cancel("Canceled.");
 		return 130;
@@ -79,13 +79,13 @@ export async function runAddCommand(args: string[]): Promise<number> {
 				return 1;
 			}
 			for (const name of selected) {
-				await addSingleAsset(kind, home, name, parsed.options);
+				await linkSingleAsset(kind, home, name, parsed.options);
 			}
 			return 0;
 		}
 		if (!process.stdout.isTTY || !process.stdin.isTTY) {
 			process.stderr.write(`${styleError("Missing asset name.")}\n`);
-			printAddHelp();
+			printLinkHelp();
 			return 2;
 		}
 		const selected = await selectAssetsFromHome(home, kind, parsed.options.to);
@@ -98,7 +98,7 @@ export async function runAddCommand(args: string[]): Promise<number> {
 			return 1;
 		}
 		for (const name of selected) {
-			await addSingleAsset(kind, home, name, parsed.options);
+			await linkSingleAsset(kind, home, name, parsed.options);
 		}
 		return 0;
 	}
@@ -109,15 +109,15 @@ export async function runAddCommand(args: string[]): Promise<number> {
 		return 2;
 	}
 
-	await addSingleAsset(kind, home, normalizedName, parsed.options);
+	await linkSingleAsset(kind, home, normalizedName, parsed.options);
 	return 0;
 }
 
-async function addSingleAsset(
+async function linkSingleAsset(
 	kind: "prompt" | "skill",
 	home: string,
 	name: string,
-	options: AddOptions,
+	options: LinkOptions,
 ): Promise<void> {
 	if (options.agents.length > 0) {
 		const agentTargets = await resolveAgentTargets(kind, name, options.agents);
@@ -127,11 +127,11 @@ async function addSingleAsset(
 					home,
 					name,
 					targetFile: target.path,
-					mode: options.mode,
+					mode: "symlink",
 					force: options.force,
 				});
 				process.stdout.write(
-					`${styleSuccess(options.mode === "symlink" ? "Linked prompt to" : "Added prompt to")} ${styleCommand(target.id)}: ${styleCommand(target.path)}\n`,
+					`${styleSuccess("Linked prompt to")} ${styleCommand(target.id)}: ${styleCommand(target.path)}\n`,
 				);
 				continue;
 			}
@@ -139,11 +139,11 @@ async function addSingleAsset(
 				home,
 				name,
 				targetDir: target.path,
-				mode: options.mode,
+				mode: "symlink",
 				force: options.force,
 			});
 			process.stdout.write(
-				`${styleSuccess(options.mode === "symlink" ? "Linked skill to" : "Added skill to")} ${styleCommand(target.id)}: ${styleCommand(target.path)}\n`,
+				`${styleSuccess("Linked skill to")} ${styleCommand(target.id)}: ${styleCommand(target.path)}\n`,
 			);
 		}
 		return;
@@ -157,12 +157,10 @@ async function addSingleAsset(
 			home,
 			name,
 			targetFile,
-			mode: options.mode,
+			mode: "symlink",
 			force: options.force,
 		});
-		process.stdout.write(
-			`${styleSuccess(options.mode === "symlink" ? "Linked prompt:" : "Added prompt:")} ${styleCommand(targetFile)}\n`,
-		);
+		process.stdout.write(`${styleSuccess("Linked prompt:")} ${styleCommand(targetFile)}\n`);
 		return;
 	}
 
@@ -173,12 +171,10 @@ async function addSingleAsset(
 		home,
 		name,
 		targetDir,
-		mode: options.mode,
+		mode: "symlink",
 		force: options.force,
 	});
-	process.stdout.write(
-		`${styleSuccess(options.mode === "symlink" ? "Linked skill:" : "Added skill:")} ${styleCommand(targetDir)}\n`,
-	);
+	process.stdout.write(`${styleSuccess("Linked skill:")} ${styleCommand(targetDir)}\n`);
 }
 
 async function resolveInteractiveKind(): Promise<"prompt" | "skill" | null> {
@@ -215,7 +211,7 @@ async function selectAssetsFromHome(
 
 	if (explicitTargetPath) {
 		const selected = await p.select({
-			message: `Select ${kind} to add`,
+			message: `Select ${kind} to link`,
 			options: ids.map((id) => ({ value: id, label: id })),
 		});
 		if (p.isCancel(selected)) {
@@ -225,7 +221,7 @@ async function selectAssetsFromHome(
 	}
 
 	const selected = await p.multiselect({
-		message: `Select ${kind}s to add`,
+		message: `Select ${kind}s to link`,
 		options: ids.map((id) => ({ value: id, label: id })),
 	});
 	if (p.isCancel(selected)) {
@@ -264,7 +260,7 @@ async function resolveAgentTargets(
 async function selectAssetsFromFlags(
 	home: string,
 	kind: "prompt" | "skill",
-	options: AddOptions,
+	options: LinkOptions,
 ): Promise<string[]> {
 	const ids =
 		kind === "prompt"
@@ -305,14 +301,14 @@ function normalizeAgents(agentInputs: string[]): { valid: string[]; invalid: str
 	};
 }
 
-function parseAddArgs(args: string[]): {
+function parseLinkArgs(args: string[]): {
 	kind?: string;
 	name?: string;
-	options: AddOptions;
+	options: LinkOptions;
 	help?: boolean;
 } {
 	const positionals: string[] = [];
-	const options: AddOptions = { agents: [], select: [], mode: "copy" };
+	const options: LinkOptions = { agents: [], select: [] };
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -332,6 +328,28 @@ function parseAddArgs(args: string[]): {
 				throw new Error("Missing value for --home");
 			}
 			options.home = value;
+			index += 1;
+			continue;
+		}
+		if (arg === "--kind") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --kind");
+			}
+			const normalized = value.trim().toLowerCase();
+			if (normalized !== "prompt" && normalized !== "skill") {
+				throw new Error("Invalid value for --kind. Use prompt or skill.");
+			}
+			options.kind = normalized;
+			index += 1;
+			continue;
+		}
+		if (arg === "--name") {
+			const value = args[index + 1];
+			if (!value || value.startsWith("-")) {
+				throw new Error("Missing value for --name");
+			}
+			options.name = value;
 			index += 1;
 			continue;
 		}
@@ -357,19 +375,6 @@ function parseAddArgs(args: string[]): {
 			options.all = true;
 			continue;
 		}
-		if (arg === "--mode") {
-			const value = args[index + 1];
-			if (!value || value.startsWith("-")) {
-				throw new Error("Missing value for --mode");
-			}
-			const normalized = value.trim().toLowerCase();
-			if (normalized !== "copy" && normalized !== "symlink") {
-				throw new Error("Invalid value for --mode. Use copy or symlink.");
-			}
-			options.mode = normalized;
-			index += 1;
-			continue;
-		}
 		if (arg === "--select") {
 			const value = args[index + 1];
 			if (!value || value.startsWith("-")) {
@@ -379,50 +384,54 @@ function parseAddArgs(args: string[]): {
 			index += 1;
 			continue;
 		}
+		if (arg.startsWith("-")) {
+			throw new Error(`Unknown option for link: ${arg}`);
+		}
 		positionals.push(arg);
 	}
 
 	const first = positionals[0];
 	if (first === "prompt" || first === "skill") {
 		return {
-			kind: first,
-			name: positionals[1],
+			kind: options.kind ?? first,
+			name: options.name ?? positionals[1],
 			options,
 		};
 	}
 	return {
-		kind: undefined,
-		name: first,
+		kind: options.kind,
+		name: options.name ?? first,
 		options,
 	};
 }
 
-function printAddHelp(): void {
+function printLinkHelp(): void {
 	const writeOption = (flag: string, description: string) => {
 		process.stdout.write(`  ${styleCommand(flag.padEnd(32))} ${styleHint(description)}\n`);
 	};
 
 	process.stdout.write(
-		`${styleLabel("Usage")}: ${styleCommand("dotagents add [prompt|skill] [name] [options]")}\n`,
+		`${styleLabel("Usage")}: ${styleCommand("dotagents link [prompt|skill] [name] [options]")}\n`,
 	);
 	process.stdout.write(`${styleLabel("Options")}\n`);
+	writeOption("--kind <prompt|skill>", "Set asset kind explicitly");
+	writeOption("--name <slug>", "Set asset name explicitly");
 	writeOption("--to <path>", "Override destination path");
 	writeOption("--agent, -a <name>", "Target configured global homes: codex, claude, agents");
-	writeOption("--all", "When name omitted, add all matching home assets");
-	writeOption("--select <name,...>", "When name omitted, add selected comma-separated assets");
-	writeOption("--mode <copy|symlink>", "Install mode (default: copy)");
+	writeOption("--all", "When name omitted, link all matching home assets");
+	writeOption("--select <name,...>", "When name omitted, link selected comma-separated assets");
 	writeOption("--home <path>", "Use a specific home repository");
 	writeOption("--force, -f", "Overwrite existing destination");
 	writeOption("--help, -h", "Show this help");
 	process.stdout.write(`\n${styleLabel("Examples")}\n`);
-	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents add prompt release")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents link prompt release")}\n`);
 	process.stdout.write(
-		`  ${styleHint("$")} ${styleCommand("dotagents add skill terminal-ui --agent codex")}\n`,
+		`  ${styleHint("$")} ${styleCommand("dotagents link skill terminal-ui --agent codex")}\n`,
 	);
-	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents add prompt --all")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents link prompt --all")}\n`);
 	process.stdout.write(`\n${styleLabel("Notes")}\n`);
 	process.stdout.write(
-		`  ${styleHint("Copy a prompt or skill from your home repo into the current project.")}\n`,
+		`  ${styleHint("Link a prompt or skill from your home repo into the current project.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("If <name> is omitted in interactive mode, you'll choose from available home assets.")}\n`,
@@ -432,8 +441,5 @@ function printAddHelp(): void {
 	);
 	process.stdout.write(
 		`  ${styleHint("Use --all or --select when <name> is omitted to avoid interactive asset pickers.")}\n`,
-	);
-	process.stdout.write(
-		`  ${styleHint("Use --mode symlink to link assets instead of copying them.")}\n`,
 	);
 }

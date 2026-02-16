@@ -5,6 +5,7 @@ import { runConfigCommand } from "./commands/config-command.js";
 import { runCreateCommand } from "./commands/create-command.js";
 import { runEditCommand } from "./commands/edit-command.js";
 import { runInitCommand } from "./commands/init-command.js";
+import { runLinkCommand } from "./commands/link-command.js";
 import { runScanCommand } from "./commands/scan-command.js";
 import { runSkillCommand } from "./commands/skill-command.js";
 import { ensureConfiguredForRun } from "./core/bootstrap.js";
@@ -32,6 +33,9 @@ export async function runCli(argv: string[]): Promise<number> {
 		}
 		if (command === "init") {
 			return await runInitCommand(rest);
+		}
+		if (command === "link") {
+			return await runLinkCommand(rest);
 		}
 		// Initialize global config and home repo layout on first run.
 		await ensureConfiguredForRun();

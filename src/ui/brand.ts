@@ -44,6 +44,7 @@ export function printHelp(version: string): void {
 	writeHelpRow("new <prompt|skill> [name]", "Alias for create");
 	writeHelpRow("add [prompt|skill] <name>", "Copy an asset from home to current project");
 	writeHelpRow("init", "Scaffold project-local .agents layout");
+	writeHelpRow("link [prompt|skill] <name>", "Symlink an asset from home to a destination");
 	writeHelpRow("edit [prompt|skill] [name]", "Edit an asset from home/project/global targets");
 	writeHelpRow("check [prompt|skill]", "Validate home prompt and skill assets");
 	writeHelpRow("scan", "Scan agent directories for unsynced assets");
@@ -55,6 +56,7 @@ export function printHelp(version: string): void {
 	writeExample("dotagents create prompt");
 	writeExample("dotagents init -p");
 	writeExample("dotagents add prompt release");
+	writeExample("dotagents link prompt release");
 	writeExample("dotagents edit prompt release");
 	writeExample("dotagents check --strict");
 	writeExample("dotagents add skill terminal-ui --force");
