@@ -4,14 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-16
+
 ### Added
 
 - Add `dotagents check` command with prompt/skill metadata validation, `--json` machine output, kind filtering (`prompt|skill`), asset selectors (`--filter`, `--exclude`), and `--strict` warning-as-error mode for CI gating.
 - Add `dotagents init` command to scaffold project-local `.agents` layout with optional post-init asset install (`--with`) or symlink mode (`--link`).
 - Add `dotagents link` command for symlink-based prompt/skill installs, and add parity mode `dotagents add --mode symlink`.
 - Add scan conflict analysis with `dotagents scan --diff`, `--diff-full`, and `--explain-conflicts`, including structured conflict details in `--json` output.
-- Fix JSON mode output to suppress banner noise for machine parsing, and add `dotagents scan --source-only` for isolated source-only scans.
 - Add manifest-lock workflow with `agents.toml` and `agents.lock.toml` plus new commands `dotagents skill lock`, `dotagents skill install`, and `dotagents skill check-lock`.
+- Add `dotagents-cli` skill package under `skills/dotagents-cli` with command surface and troubleshooting references.
+
+### Changed
+
+- Add `dotagents scan --source-only` for isolated source-only scans.
+
+### Fixed
+
+- Suppress CLI banner output for `--json` command runs so machine-readable output remains valid JSON.
+- Harden skill manifest lock handling by failing `skill install` on invalid existing lockfiles (instead of auto-regenerating).
+- Validate manifest/lock skill ids against path traversal patterns before install/check operations.
 
 ## [0.4.0] - 2026-02-10
 

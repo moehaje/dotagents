@@ -1,6 +1,6 @@
 {
 	"name": "@artsnlabs/dotagents",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"description": "Unified CLI for managing agent assets (prompts, skills, configs) from one home source across projects, local agents, and sync workflows.",
 	"license": "MIT",
 	"author": "Moe Haje <hello@moee.dev> (https://moee.dev)",
@@ -31,7 +31,9 @@
 		"prompts",
 		"skills",
 		"assets",
-		"sync"
+		"sync",
+		"agent-skills",
+		"ai-agents"
 	],
 	"bin": {
 		"dotagents": "dist/index.js"
