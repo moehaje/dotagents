@@ -43,6 +43,7 @@ export function printHelp(version: string): void {
 	writeHelpRow("create <prompt|skill> [name]", "Create an asset in dotagents home");
 	writeHelpRow("new <prompt|skill> [name]", "Alias for create");
 	writeHelpRow("add [prompt|skill] <name>", "Copy an asset from home to current project");
+	writeHelpRow("init", "Scaffold project-local .agents layout");
 	writeHelpRow("edit [prompt|skill] [name]", "Edit an asset from home/project/global targets");
 	writeHelpRow("check [prompt|skill]", "Validate home prompt and skill assets");
 	writeHelpRow("scan", "Scan agent directories for unsynced assets");
@@ -52,6 +53,7 @@ export function printHelp(version: string): void {
 	writeHelpRow("--version, -v", "Show version");
 	process.stdout.write(`\n${pc.bold("Examples")}\n`);
 	writeExample("dotagents create prompt");
+	writeExample("dotagents init -p");
 	writeExample("dotagents add prompt release");
 	writeExample("dotagents edit prompt release");
 	writeExample("dotagents check --strict");
