@@ -12,6 +12,7 @@ import {
 	scanUnsyncedAssets,
 } from "../core/assets.js";
 import { defaultScanSources, type ScanSource } from "../core/config.js";
+import { buildScanConflicts, type ScanConflict } from "../core/scan-conflicts.js";
 import type { AssetKind, DiscoveredAsset } from "../core/types.js";
 import { styleCommand, styleHint, styleLabel } from "../ui/brand.js";
 
@@ -24,6 +25,9 @@ type ScanOptions = {
 	syncSelect: string[];
 	force?: boolean;
 	sourcesFull?: boolean;
+	diff?: boolean;
+	diffFull?: boolean;
+	explainConflicts?: boolean;
 };
 
 type ScanState = "synced-tracked" | "synced-untracked" | "unsynced-untracked";
@@ -65,9 +69,25 @@ export async function runScanCommand(args: string[]): Promise<number> {
 		homeSkillIds,
 		trackedFiles,
 	});
+	const conflicts = await buildScanConflicts({
+		home,
+		discoveredAssets: [...report.discoveredPrompts, ...report.discoveredSkills],
+		trackedFiles,
+		includeDiff: Boolean(options.diff || options.diffFull),
+		includeDiffFull: Boolean(options.diffFull),
+	});
+	const conflictById = new Map<string, ScanConflict>(
+		conflicts.map((conflict) => [`${conflict.kind}:${conflict.id}`, conflict]),
+	);
+	const statusItemsWithConflicts = statusItems.map((item) => ({
+		...item,
+		conflict: conflictById.get(`${item.kind}:${item.id}`),
+	}));
 
 	if (options.json) {
-		process.stdout.write(`${JSON.stringify({ ...report, statuses: statusItems }, null, 2)}\n`);
+		process.stdout.write(
+			`${JSON.stringify({ ...report, statuses: statusItemsWithConflicts, conflicts }, null, 2)}\n`,
+		);
 		return report.unsyncedPrompts.length + report.unsyncedSkills.length > 0 ? 1 : 0;
 	}
 
@@ -79,27 +99,41 @@ export async function runScanCommand(args: string[]): Promise<number> {
 
 	printStatusSection(
 		"Synced + git tracked",
-		statusItems.filter((item) => item.state === "synced-tracked"),
+		statusItemsWithConflicts.filter((item) => item.state === "synced-tracked"),
 		pc.green("●"),
 	);
 	printStatusSection(
 		"Synced + untracked in home git",
-		statusItems.filter((item) => item.state === "synced-untracked"),
+		statusItemsWithConflicts.filter((item) => item.state === "synced-untracked"),
 		pc.yellow("●"),
 	);
 	printStatusSection(
 		"Unsynced (missing from home)",
-		statusItems.filter((item) => item.state === "unsynced-untracked"),
+		statusItemsWithConflicts.filter((item) => item.state === "unsynced-untracked"),
 		pc.red("●"),
 	);
-	if (statusItems.length === 0) {
+	if (statusItemsWithConflicts.length === 0) {
 		process.stdout.write(`\n${styleHint("No assets discovered in configured scan sources.")}\n`);
 		return 0;
+	}
+	const shouldExplainConflicts =
+		Boolean(options.explainConflicts) ||
+		Boolean(options.diff) ||
+		Boolean(options.diffFull) ||
+		Boolean(process.stdout.isTTY);
+	if (shouldExplainConflicts) {
+		printConflictSection(conflicts, Boolean(options.diffFull));
 	}
 
 	const unsyncedAssets = [...report.unsyncedPrompts, ...report.unsyncedSkills];
 	if (options.syncAll) {
-		return await syncSelectedAssets(home, unsyncedAssets, Boolean(options.force), null);
+		return await syncSelectedAssets(
+			home,
+			unsyncedAssets,
+			Boolean(options.force),
+			null,
+			conflictById,
+		);
 	}
 	if (options.syncSelect.length > 0) {
 		return await syncSelectedAssets(
@@ -107,12 +141,13 @@ export async function runScanCommand(args: string[]): Promise<number> {
 			unsyncedAssets,
 			Boolean(options.force),
 			new Set(options.syncSelect),
+			conflictById,
 		);
 	}
 
 	const shouldPromptSync = options.sync || (Boolean(process.stdout.isTTY) && !options.json);
 	if (shouldPromptSync) {
-		return await promptAndSyncUnsynced(home, unsyncedAssets, options.force);
+		return await promptAndSyncUnsynced(home, unsyncedAssets, options.force, conflictById);
 	}
 
 	if (report.unsyncedPrompts.length === 0 && report.unsyncedSkills.length === 0) {
@@ -127,6 +162,7 @@ async function promptAndSyncUnsynced(
 	home: string,
 	assets: DiscoveredAsset[],
 	force = false,
+	conflictById?: Map<string, ScanConflict>,
 ): Promise<number> {
 	if (assets.length === 0) {
 		return 0;
@@ -137,7 +173,10 @@ async function promptAndSyncUnsynced(
 		options: assets.map((asset) => ({
 			value: `${asset.kind}:${asset.id}:${asset.path}`,
 			label: `[${asset.kind}] ${asset.id}  (${asset.source})`,
-			hint: asset.path,
+			hint:
+				conflictById?.get(`${asset.kind}:${asset.id}`)?.state === "ambiguous-multi-source"
+					? `conflict: ambiguous-multi-source`
+					: asset.path,
 		})),
 	});
 	if (p.isCancel(selected)) {
@@ -150,7 +189,7 @@ async function promptAndSyncUnsynced(
 	}
 
 	const chosen = new Set(selected);
-	return await syncSelectedAssets(home, assets, force, chosen);
+	return await syncSelectedAssets(home, assets, force, chosen, conflictById);
 }
 
 async function syncSelectedAssets(
@@ -158,6 +197,7 @@ async function syncSelectedAssets(
 	assets: DiscoveredAsset[],
 	force: boolean,
 	selection: Set<string> | null,
+	conflictById?: Map<string, ScanConflict>,
 ): Promise<number> {
 	const targets =
 		selection === null
@@ -171,6 +211,12 @@ async function syncSelectedAssets(
 
 	let failures = 0;
 	for (const asset of targets) {
+		const conflict = conflictById?.get(`${asset.kind}:${asset.id}`);
+		if (conflict && conflict.state !== "no-conflict") {
+			process.stdout.write(
+				`${pc.yellow("Warning")} [${asset.kind}] ${asset.id}: ${conflict.state} — ${conflict.recommendation}\n`,
+			);
+		}
 		try {
 			const targetPath = await importDiscoveredAssetToHome({ home, asset, force });
 			process.stdout.write(
@@ -274,6 +320,32 @@ function printStatusSection(title: string, items: ScanStatusItem[], dot: string)
 	process.stdout.write("\n");
 }
 
+function printConflictSection(conflicts: ScanConflict[], showFullDiff: boolean): void {
+	const relevant = conflicts.filter((conflict) => conflict.state !== "no-conflict");
+	if (relevant.length === 0) {
+		return;
+	}
+	process.stdout.write(
+		`${pc.bold("Conflict explanations")} ${styleHint(`(${relevant.length})`)}\n`,
+	);
+	for (const conflict of relevant) {
+		process.stdout.write(
+			`  ${styleCommand(`[${conflict.kind}]`)} ${styleCommand(conflict.id)} ${pc.yellow(conflict.state)}\n`,
+		);
+		process.stdout.write(`    ${styleHint(`reason: ${conflict.reason}`)}\n`);
+		process.stdout.write(`    ${styleHint(`recommendation: ${conflict.recommendation}`)}\n`);
+		if (conflict.diff?.summary) {
+			process.stdout.write(`    ${styleHint(`diff: ${conflict.diff.summary}`)}\n`);
+		}
+		if (showFullDiff && conflict.diff?.preview?.length) {
+			for (const line of conflict.diff.preview) {
+				process.stdout.write(`    ${styleHint(line)}\n`);
+			}
+		}
+	}
+	process.stdout.write("\n");
+}
+
 function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 	const options: ScanOptions = { sources: [], syncSelect: [] };
 	for (let index = 0; index < args.length; index += 1) {
@@ -290,6 +362,19 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 		}
 		if (arg === "--sync") {
 			options.sync = true;
+			continue;
+		}
+		if (arg === "--diff") {
+			options.diff = true;
+			continue;
+		}
+		if (arg === "--diff-full") {
+			options.diff = true;
+			options.diffFull = true;
+			continue;
+		}
+		if (arg === "--explain-conflicts") {
+			options.explainConflicts = true;
 			continue;
 		}
 		if (arg === "--sync-all") {
@@ -351,6 +436,9 @@ function printScanHelp(): void {
 	writeOption("--source <path>", "Add explicit scan source (repeatable)");
 	writeOption("--json", "Emit machine-readable JSON output");
 	writeOption("--sync", "Prompt to select unsynced assets to import");
+	writeOption("--diff", "Include compact conflict diff summaries");
+	writeOption("--diff-full", "Include expanded conflict diff previews");
+	writeOption("--explain-conflicts", "Print conflict reasons and recommendations");
 	writeOption("--sync-all", "Import all unsynced assets without prompting");
 	writeOption("--sync-select <kind:id:path,...>", "Import specific unsynced assets by key");
 	writeOption("--force, -f", "Overwrite on import when target exists");
@@ -359,6 +447,7 @@ function printScanHelp(): void {
 	process.stdout.write(`\n${styleLabel("Examples")}\n`);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan")}\n`);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan --sync")}\n`);
+	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan --diff")}\n`);
 	process.stdout.write(
 		`  ${styleHint("$")} ${styleCommand("dotagents scan --sync-all --force")}\n`,
 	);
@@ -374,6 +463,9 @@ function printScanHelp(): void {
 	);
 	process.stdout.write(
 		`  ${styleHint("--sync-select imports specific unsynced assets by key [kind:id:path].")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("--diff and --diff-full help review conflicts before syncing/importing.")}\n`,
 	);
 	process.stdout.write(
 		`  ${styleHint("--sources-full prints all configured source paths instead of summary.")}\n`,
