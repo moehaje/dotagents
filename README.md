@@ -10,6 +10,7 @@
 ## Features
 
 - Create prompts and skills in a tracked home repo.
+- Bootstrap project-local `.agents` directories and starter docs.
 - Optionally install newly created assets to project or configured global agent paths.
 - Add prompts and skills into the current project quickly.
 - Validate prompt and skill assets before sync/install workflows.
@@ -53,6 +54,7 @@ npx @artsnlabs/dotagents --help
 ```bash
 dotagents --help
 dotagents create prompt
+dotagents init -p
 dotagents add prompt release
 dotagents edit prompt release
 dotagents check --strict
@@ -67,6 +69,7 @@ dotagents skill sync --check
 
 ```bash
 dotagents create [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--title <title>] [--description <text>] [--args <text>] [--content <text>|--content-file <path>|--content-stdin] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>] [--force]
+dotagents init [--project|-p] [--with <prompt:name,skill:name,...>] [--link] [--home <path>] [--force]
 dotagents add [prompt|skill] [name] [--to <path>] [--agent|-a <codex|claude|agents>] [--all|--select <name,...>] [--home <path>] [--force]
 dotagents edit [prompt|skill] [name] [--kind <prompt|skill>] [--name <slug>] [--file <relative/path>] [--inline] [--editor <cmd>] [--home <path>] [--project|-p] [--global|-g] [--agent|-a <name>]
 dotagents check [prompt|skill] [--home <path>] [--json] [--strict] [--filter <name,...>] [--exclude <name,...>]
@@ -78,6 +81,8 @@ dotagents skill sync [--check] [--yes] [--home <path>]
 
 If `dotagents add` is run without kind or name in interactive mode, it prompts to select the asset kind and asset(s) from home.
 `dotagents new` is kept as a compatibility alias for `dotagents create`.
+Use `dotagents init` to scaffold `.agents/prompts`, `.agents/skills`, and starter docs in the current project.
+Pass `--with prompt:<name>,skill:<name>` to install starter assets during init, and add `--link` to symlink instead of copying.
 Use create target flags to control where assets are written: `-p` (project), `-g` (global agent homes), `-a codex|claude|agents`.
 Combine `-p` and `-a` to target agent-local project directories (for example `./.codex` or `./.claude`).
 `dotagents edit` uses the same scope flags and defaults to home scope when no target flags are provided.

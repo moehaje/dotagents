@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Add `dotagents check` command with prompt/skill metadata validation, `--json` machine output, kind filtering (`prompt|skill`), asset selectors (`--filter`, `--exclude`), and `--strict` warning-as-error mode for CI gating.
+- Add `dotagents init` command to scaffold project-local `.agents` layout with optional post-init asset install (`--with`) or symlink mode (`--link`).
 
 ## [0.4.0] - 2026-02-10
 
