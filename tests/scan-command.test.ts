@@ -74,4 +74,48 @@ describe("runScanCommand", () => {
 			),
 		).toBe(true);
 	});
+
+	it("supports isolated scans with --source-only", async () => {
+		const home = await fs.mkdtemp(path.join(os.tmpdir(), "dotagents-scan-home-"));
+		const source = await fs.mkdtemp(path.join(os.tmpdir(), "dotagents-scan-source-"));
+		tempDirs.push(home, source);
+
+		await fs.mkdir(path.join(home, "prompts"), { recursive: true });
+		await fs.mkdir(path.join(source, "prompts"), { recursive: true });
+		await fs.writeFile(
+			path.join(home, "prompts", "release.md"),
+			"---\ndescription: release\n---\n",
+			"utf8",
+		);
+		await fs.writeFile(
+			path.join(source, "prompts", "release.md"),
+			"---\ndescription: release\n---\n",
+			"utf8",
+		);
+
+		const writes: string[] = [];
+		const originalWrite = process.stdout.write.bind(process.stdout);
+		process.stdout.write = ((chunk: string | Uint8Array) => {
+			writes.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+			return true;
+		}) as typeof process.stdout.write;
+
+		try {
+			await runScanCommand(["--home", home, "--source", source, "--source-only", "--json"]);
+		} finally {
+			process.stdout.write = originalWrite;
+		}
+
+		const parsed = JSON.parse(writes.join("")) as {
+			scannedSources?: string[];
+			discoveredPrompts?: Array<{ id?: string }>;
+			conflicts?: Array<{ id?: string; state?: string }>;
+		};
+		expect(parsed.scannedSources).toEqual([source]);
+		expect(parsed.discoveredPrompts?.map((item) => item.id).sort()).toEqual([
+			"prompts/release",
+			"release",
+		]);
+		expect(parsed.conflicts?.find((item) => item.id === "release")?.state).toBe("home-untracked");
+	});
 });

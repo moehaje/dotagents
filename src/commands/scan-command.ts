@@ -11,7 +11,7 @@ import {
 	listHomeSkillIds,
 	scanUnsyncedAssets,
 } from "../core/assets.js";
-import { defaultScanSources, type ScanSource } from "../core/config.js";
+import { defaultScanSources, expandTilde, type ScanSource } from "../core/config.js";
 import { buildScanConflicts, type ScanConflict } from "../core/scan-conflicts.js";
 import type { AssetKind, DiscoveredAsset } from "../core/types.js";
 import { styleCommand, styleHint, styleLabel } from "../ui/brand.js";
@@ -28,6 +28,7 @@ type ScanOptions = {
 	diff?: boolean;
 	diffFull?: boolean;
 	explainConflicts?: boolean;
+	sourceOnly?: boolean;
 };
 
 type ScanState = "synced-tracked" | "synced-untracked" | "unsynced-untracked";
@@ -50,8 +51,12 @@ export async function runScanCommand(args: string[]): Promise<number> {
 	}
 
 	const home = await ensureHomeRepoStructure(options.home);
-	const configuredSources = await defaultScanSources(options.sources);
-	const sources = withProjectSource(configuredSources);
+	const configuredSources = options.sourceOnly
+		? buildExplicitSources(options.sources)
+		: await defaultScanSources(options.sources);
+	const sources = options.sourceOnly
+		? dedupeSourcesByRoot(configuredSources)
+		: withProjectSource(configuredSources);
 	const sourceRoots = sources.map((source) => source.root);
 	const activeSourceRoots = await listExistingDirectories(sourceRoots);
 	const report = await scanUnsyncedAssets({
@@ -420,7 +425,14 @@ function parseScanArgs(args: string[]): ScanOptions & { help?: boolean } {
 			index += 1;
 			continue;
 		}
+		if (arg === "--source-only") {
+			options.sourceOnly = true;
+			continue;
+		}
 		throw new Error(`Unknown option for scan: ${arg}`);
+	}
+	if (options.sourceOnly && options.sources.length === 0) {
+		throw new Error("Missing --source <path> when using --source-only.");
 	}
 	return options;
 }
@@ -434,6 +446,7 @@ function printScanHelp(): void {
 	process.stdout.write(`${styleLabel("Options")}\n`);
 	writeOption("--home <path>", "Use a specific home repository");
 	writeOption("--source <path>", "Add explicit scan source (repeatable)");
+	writeOption("--source-only", "Use only explicit --source values");
 	writeOption("--json", "Emit machine-readable JSON output");
 	writeOption("--sync", "Prompt to select unsynced assets to import");
 	writeOption("--diff", "Include compact conflict diff summaries");
@@ -448,6 +461,9 @@ function printScanHelp(): void {
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan")}\n`);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan --sync")}\n`);
 	process.stdout.write(`  ${styleHint("$")} ${styleCommand("dotagents scan --diff")}\n`);
+	process.stdout.write(
+		`  ${styleHint("$")} ${styleCommand("dotagents scan --source ./.tmp/srcA --source-only --diff")}\n`,
+	);
 	process.stdout.write(
 		`  ${styleHint("$")} ${styleCommand("dotagents scan --sync-all --force")}\n`,
 	);
@@ -471,7 +487,10 @@ function printScanHelp(): void {
 		`  ${styleHint("--sources-full prints all configured source paths instead of summary.")}\n`,
 	);
 	process.stdout.write(
-		`  ${styleHint("Current project path is always included as a scan source.")}\n`,
+		`  ${styleHint("Current project path is included as a scan source unless --source-only is set.")}\n`,
+	);
+	process.stdout.write(
+		`  ${styleHint("--source-only disables default sources and project auto-source for isolated scans.")}\n`,
 	);
 }
 
@@ -541,4 +560,12 @@ function dedupeSourcesByRoot(sources: ScanSource[]): ScanSource[] {
 		deduped.push({ ...source, root: resolvedRoot });
 	}
 	return deduped;
+}
+
+function buildExplicitSources(values: string[]): ScanSource[] {
+	return values.map((value) => ({
+		name: "custom",
+		root: expandTilde(value),
+		explicit: true,
+	}));
 }
