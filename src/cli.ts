@@ -13,7 +13,9 @@ import { printBanner, printHelp, styleError } from "./ui/brand.js";
 
 export async function runCli(argv: string[]): Promise<number> {
 	const [command, ...rest] = argv;
-	printBanner();
+	if (shouldPrintBanner(command, rest)) {
+		printBanner();
+	}
 
 	if (!command || command === "--help" || command === "-h" || command === "help") {
 		printHelp(readVersion());
@@ -74,4 +76,14 @@ function readVersion(): string {
 	} catch {
 		return "0.0.0";
 	}
+}
+
+function shouldPrintBanner(command: string | undefined, args: string[]): boolean {
+	if (!command) {
+		return true;
+	}
+	if (command === "--version" || command === "-v" || command === "version") {
+		return false;
+	}
+	return !args.includes("--json");
 }
