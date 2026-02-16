@@ -33,7 +33,7 @@ export async function createProjectScaffold(options: {
 	const files = [
 		{
 			path: path.join(agentsRoot, "AGENTS.md"),
-			content: projectAgentsTemplate(),
+			content: projectAgentsTemplate(path.basename(projectRoot)),
 		},
 		{
 			path: path.join(agentsRoot, "README.md"),
@@ -62,9 +62,9 @@ export async function createProjectScaffold(options: {
 	return entries;
 }
 
-function projectAgentsTemplate(): string {
+function projectAgentsTemplate(projectName: string): string {
 	return [
-		"# Project AGENTS",
+		`# ${projectName || "project"}`,
 		"",
 		"Use this file for project-specific instructions that complement your global home assets.",
 		"",

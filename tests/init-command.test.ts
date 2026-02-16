@@ -58,7 +58,7 @@ describe("runInitCommand", () => {
 		const code = await runInitCommand(["-p", "--force"]);
 		expect(code).toBe(0);
 		const content = await fs.readFile(filePath, "utf8");
-		expect(content).toContain("# Project AGENTS");
+		expect(content).toContain(`# ${path.basename(process.cwd())}`);
 	});
 
 	it("installs selected prompt and skill assets with --with", async () => {
