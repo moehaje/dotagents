@@ -66,6 +66,9 @@ dotagents scan --sync
 dotagents config
 dotagents skill add vercel-labs/skills@find-skills
 dotagents skill sync --check
+dotagents skill lock
+dotagents skill install
+dotagents skill check-lock
 ```
 
 ## Command Surface
@@ -81,6 +84,9 @@ dotagents scan [--home <path>] [--source <path> ...] [--source-only] [--json] [-
 dotagents config [--home <path> --editor <cmd> --codex <path> --claude <path> --agents <path>]
 dotagents skill <skills-cli-args...>
 dotagents skill sync [--check] [--yes] [--home <path>]
+dotagents skill lock [--manifest <path>] [--lockfile <path>]
+dotagents skill install [--manifest <path>] [--lockfile <path>]
+dotagents skill check-lock [--lockfile <path>]
 ```
 
 If `dotagents add` is run without kind or name in interactive mode, it prompts to select the asset kind and asset(s) from home.
@@ -99,6 +105,30 @@ Use `dotagents add --all` or `dotagents add --select ...` to avoid interactive p
 Use `dotagents scan --source <path> --source-only` when you need isolated scans without default/global agent directories.
 Use `dotagents scan --diff` or `dotagents scan --diff-full` to review conflict summaries before syncing; add `--explain-conflicts` for explicit reason/recommendation output.
 Use `dotagents scan --sync-all` or `dotagents scan --sync-select ...` for non-interactive sync runs.
+Use `dotagents skill lock` to resolve `agents.toml` into a deterministic `agents.lock.toml`.
+Use `dotagents skill install` to install pinned lockfile skills into project-local `.agents/skills/<id>`.
+Use `dotagents skill check-lock` in CI to verify installed skills match lockfile integrity.
+
+### Skill Manifest and Lock
+
+Create `agents.toml` in your project root:
+
+```toml
+[project]
+name = "my-project"
+
+[[skills]]
+id = "find-skills"
+source = "vercel-labs/skills@find-skills"
+```
+
+Generate lock and install:
+
+```bash
+dotagents skill lock
+dotagents skill install
+dotagents skill check-lock
+```
 
 ## Home Repo Resolution
 
