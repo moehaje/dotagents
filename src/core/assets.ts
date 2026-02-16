@@ -19,6 +19,7 @@ const PROMPT_SOURCE_DIRS = [
 
 const SKILL_SOURCE_DIRS = ["skills", ".agents/skills", ".claude/skills", ".codex/skills"] as const;
 const execFileAsync = promisify(execFile);
+export type InstallMode = "copy" | "symlink";
 
 export function slugifyName(input: string): string {
 	const normalized = input
@@ -88,9 +89,26 @@ export async function copyPromptFromHome(options: {
 	targetFile: string;
 	force?: boolean;
 }): Promise<void> {
+	await installPromptFromHome({
+		...options,
+		mode: "copy",
+	});
+}
+
+export async function installPromptFromHome(options: {
+	home: string;
+	name: string;
+	targetFile: string;
+	mode: InstallMode;
+	force?: boolean;
+}): Promise<void> {
 	const source = promptFileFromName(options.home, options.name);
 	await assertPathExists(source, "Prompt not found");
-	await copyFile(options.targetFile, source, Boolean(options.force));
+	if (options.mode === "copy") {
+		await copyFile(options.targetFile, source, Boolean(options.force));
+		return;
+	}
+	await createSymlink(options.targetFile, source, Boolean(options.force), "file");
 }
 
 export async function copySkillFromHome(options: {
@@ -99,9 +117,26 @@ export async function copySkillFromHome(options: {
 	targetDir: string;
 	force?: boolean;
 }): Promise<void> {
+	await installSkillFromHome({
+		...options,
+		mode: "copy",
+	});
+}
+
+export async function installSkillFromHome(options: {
+	home: string;
+	name: string;
+	targetDir: string;
+	mode: InstallMode;
+	force?: boolean;
+}): Promise<void> {
 	const source = skillDirFromName(options.home, options.name);
 	await assertPathExists(source, "Skill not found");
-	await copyDirectory(options.targetDir, source, Boolean(options.force));
+	if (options.mode === "copy") {
+		await copyDirectory(options.targetDir, source, Boolean(options.force));
+		return;
+	}
+	await createSymlink(options.targetDir, source, Boolean(options.force), "dir");
 }
 
 export async function scanUnsyncedAssets(options: {
@@ -325,6 +360,33 @@ async function copyFile(target: string, source: string, force: boolean): Promise
 	}
 	await fs.mkdir(path.dirname(target), { recursive: true });
 	await fs.copyFile(source, target);
+}
+
+async function createSymlink(
+	target: string,
+	source: string,
+	force: boolean,
+	type: "file" | "dir",
+): Promise<void> {
+	const resolvedTarget = path.resolve(target);
+	const resolvedSource = path.resolve(source);
+	if (resolvedTarget === resolvedSource) {
+		throw new Error(`Target already points to source: ${resolvedTarget}`);
+	}
+
+	const targetExists = await pathExists(resolvedTarget);
+	if (targetExists && !force) {
+		throw new Error(`Target already exists: ${resolvedTarget}. Use --force to overwrite.`);
+	}
+	if (targetExists) {
+		await fs.rm(resolvedTarget, { recursive: true, force: true });
+	}
+	await fs.mkdir(path.dirname(resolvedTarget), { recursive: true });
+
+	const relativeSource = path.relative(path.dirname(resolvedTarget), resolvedSource);
+	const linkTarget = relativeSource && relativeSource.length > 0 ? relativeSource : resolvedSource;
+	const linkType = process.platform === "win32" && type === "dir" ? "junction" : type;
+	await fs.symlink(linkTarget, resolvedTarget, linkType);
 }
 
 async function assertPathExists(targetPath: string, message: string): Promise<void> {

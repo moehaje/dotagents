@@ -1,11 +1,8 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import {
-	copyPromptFromHome,
-	copySkillFromHome,
 	ensureHomeRepoStructure,
-	promptFileFromName,
-	skillDirFromName,
+	installPromptFromHome,
+	installSkillFromHome,
 	slugifyName,
 } from "../core/assets.js";
 import { createProjectScaffold } from "../core/init.js";
@@ -107,54 +104,33 @@ async function applyInitAsset(input: {
 			"prompts",
 			`${input.selection.name}.md`,
 		);
-		if (!input.link) {
-			await copyPromptFromHome({
-				home: input.home,
-				name: input.selection.name,
-				targetFile,
-				force: input.force,
-			});
-			process.stdout.write(
-				`${styleSuccess("Added prompt:")} ${styleCommand(input.selection.name)} ${styleHint("->")} ${styleCommand(targetFile)}\n`,
-			);
-			return;
-		}
-		const source = promptFileFromName(input.home, input.selection.name);
-		await createSymlinkTarget({
-			source,
-			target: targetFile,
+		await installPromptFromHome({
+			home: input.home,
+			name: input.selection.name,
+			targetFile,
+			mode: input.link ? "symlink" : "copy",
 			force: input.force,
-			type: "file",
 		});
 		process.stdout.write(
-			`${styleSuccess("Linked prompt:")} ${styleCommand(input.selection.name)} ${styleHint("->")} ${styleCommand(targetFile)}\n`,
+			`${styleSuccess(input.link ? "Linked prompt:" : "Added prompt:")} ${styleCommand(
+				input.selection.name,
+			)} ${styleHint("->")} ${styleCommand(targetFile)}\n`,
 		);
 		return;
 	}
 
 	const targetDir = path.resolve(process.cwd(), ".agents", "skills", input.selection.name);
-	if (!input.link) {
-		await copySkillFromHome({
-			home: input.home,
-			name: input.selection.name,
-			targetDir,
-			force: input.force,
-		});
-		process.stdout.write(
-			`${styleSuccess("Added skill:")} ${styleCommand(input.selection.name)} ${styleHint("->")} ${styleCommand(targetDir)}\n`,
-		);
-		return;
-	}
-
-	const source = skillDirFromName(input.home, input.selection.name);
-	await createSymlinkTarget({
-		source,
-		target: targetDir,
+	await installSkillFromHome({
+		home: input.home,
+		name: input.selection.name,
+		targetDir,
+		mode: input.link ? "symlink" : "copy",
 		force: input.force,
-		type: "dir",
 	});
 	process.stdout.write(
-		`${styleSuccess("Linked skill:")} ${styleCommand(input.selection.name)} ${styleHint("->")} ${styleCommand(targetDir)}\n`,
+		`${styleSuccess(input.link ? "Linked skill:" : "Added skill:")} ${styleCommand(
+			input.selection.name,
+		)} ${styleHint("->")} ${styleCommand(targetDir)}\n`,
 	);
 }
 
@@ -273,33 +249,4 @@ function printInitHelp(): void {
 	process.stdout.write(
 		`  ${styleHint("$")} ${styleCommand("dotagents init -p --with prompt:release --link")}\n`,
 	);
-}
-
-async function createSymlinkTarget(input: {
-	source: string;
-	target: string;
-	force: boolean;
-	type: "file" | "dir";
-}): Promise<void> {
-	if (!(await pathExists(input.source))) {
-		throw new Error(`Source not found: ${input.source}`);
-	}
-	if (await pathExists(input.target)) {
-		if (!input.force) {
-			throw new Error(`Target already exists: ${input.target}. Use --force to overwrite.`);
-		}
-		await fs.rm(input.target, { recursive: true, force: true });
-	}
-	await fs.mkdir(path.dirname(input.target), { recursive: true });
-	const linkType = process.platform === "win32" && input.type === "dir" ? "junction" : input.type;
-	await fs.symlink(input.source, input.target, linkType);
-}
-
-async function pathExists(targetPath: string): Promise<boolean> {
-	try {
-		await fs.access(targetPath);
-		return true;
-	} catch {
-		return false;
-	}
 }
